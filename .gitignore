@@ -1,0 +1,28 @@
+# Xcode build
+build/
+DerivedData/
+
+# Xcode user data
+*.xcuserdata
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Index
+*.noindex/
+
+# SDK caches
+*.sdkstatcache
+
+# Module cache
+ModuleCache.noindex/
+
+# Logs
+*.xcactivitylog
+
+# Temp screenshots
+docs/.tmp/
+
+# Database
+*.db

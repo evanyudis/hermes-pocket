@@ -17,7 +17,10 @@ struct ChatSidebarView: View {
             .frame(width: UIScreen.main.bounds.width)
             .background(Color(red: 0.045, green: 0.045, blue: 0.055))
             .offset(x: showSidebar ? 0 : -UIScreen.main.bounds.width)
+            .scaleEffect(showSidebar ? 1 : 0.985, anchor: .leading)
+            .opacity(showSidebar ? 1 : 0.98)
             .animation(easeOut, value: showSidebar)
+            .allowsHitTesting(showSidebar)
             .sheet(isPresented: $showSettings) {
                 sidebarSettingsSheet
             }
@@ -97,6 +100,7 @@ struct ChatSidebarView: View {
             }
             .buttonStyle(.plain)
         }
+        .frame(minHeight: 56)
         .padding(.horizontal, 20)
         .padding(.top, 0)
         .padding(.bottom, 14)
@@ -161,23 +165,32 @@ struct ChatSidebarView: View {
     }
 
     private func glassControlIcon(systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.body)
-            .foregroundStyle(.white)
-            .frame(width: 48, height: 48)
-            .background(
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Circle().fill(.white.opacity(0.10))
-                    )
-                    .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
-                    .environment(\.colorScheme, .dark)
-            )
-            .overlay(
-                Circle()
-                    .stroke(.white.opacity(0.18), lineWidth: 0.75)
-            )
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Circle()
+                        .fill(.white.opacity(0.08))
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.42), .white.opacity(0.10)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+                .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
+                .environment(\.colorScheme, .dark)
+
+            Image(systemName: systemName)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+        }
+        .frame(width: 46, height: 46)
     }
 
     private var sidebarSettingsSheet: some View {
