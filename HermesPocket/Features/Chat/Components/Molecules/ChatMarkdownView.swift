@@ -1,405 +1,385 @@
 import SwiftUI
+import MarkdownUI
+import LaTeXSwiftUI
 import WebKit
-import UIKit
+
+// MARK: - Content Segment Parser
+
+private enum ContentSegment: Equatable {
+    case markdown(String)
+    case mathBlock(String)
+    case mermaidBlock(String)
+}
+
+private func parseContentSegments(_ raw: String) -> [ContentSegment] {
+    var segments: [ContentSegment] = []
+    var currentMarkdown = ""
+    var i = raw.startIndex
+
+    while i < raw.endIndex {
+        // Check for $$ math block
+        if raw[i...].hasPrefix("$$") {
+            // Flush pending markdown
+            if !currentMarkdown.isEmpty {
+                segments.append(.markdown(currentMarkdown))
+                currentMarkdown = ""
+            }
+            let start = raw.index(i, offsetBy: 2)
+            if let end = raw[start...].range(of: "$$") {
+                let math = String(raw[start..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !math.isEmpty {
+                    segments.append(.mathBlock(math))
+                }
+                i = raw.index(end.upperBound, offsetBy: 0)
+            } else {
+                currentMarkdown.append("$$")
+                i = raw.index(i, offsetBy: 2)
+            }
+            continue
+        }
+
+        // Check for ```mermaid block
+        if raw[i...].hasPrefix("```mermaid") || raw[i...].hasPrefix("``` mermaid") {
+            if !currentMarkdown.isEmpty {
+                segments.append(.markdown(currentMarkdown))
+                currentMarkdown = ""
+            }
+            // Find the end of this line
+            let lineEnd = raw[i...].firstIndex(of: "\n") ?? raw.endIndex
+            let afterLang = lineEnd == raw.endIndex ? raw.endIndex : raw.index(lineEnd, offsetBy: 1)
+            if afterLang < raw.endIndex,
+               let end = raw[afterLang...].range(of: "\n```") {
+                let source = String(raw[afterLang..<end.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !source.isEmpty {
+                    segments.append(.mermaidBlock(source))
+                }
+                // Find the closing ``` line
+                let closeStart = raw.index(end.upperBound, offsetBy: 0)
+                let closeLineEnd = raw[closeStart...].firstIndex(of: "\n") ?? raw.endIndex
+                i = closeLineEnd
+            } else {
+                // Malformed, treat as markdown
+                currentMarkdown.append("```mermaid")
+                i = raw.index(i, offsetBy: 10)
+            }
+            continue
+        }
+
+        currentMarkdown.append(raw[i])
+        i = raw.index(after: i)
+    }
+
+    if !currentMarkdown.isEmpty {
+        segments.append(.markdown(currentMarkdown))
+    }
+
+    return segments
+}
+
+// MARK: - ChatMarkdownView
 
 struct ChatMarkdownView: View {
     let markdown: String
     let isStreaming: Bool
-    @State private var contentHeight: CGFloat = 24
 
     var body: some View {
-        ChatMarkdownWebView(markdown: markdown, isStreaming: isStreaming, contentHeight: $contentHeight)
-            .frame(height: max(contentHeight, 24))
+        let segments = parseContentSegments(markdown)
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
+                switch segment {
+                case .markdown(let text):
+                    MarkdownSegmentView(text: text)
+                case .mathBlock(let tex):
+                    MathBlockView(tex: tex)
+                case .mermaidBlock(let source):
+                    MermaidBlockView(source: source)
+                }
+            }
+        }
+        .textSelection(.enabled)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
-private struct ChatMarkdownWebView: UIViewRepresentable {
-    let markdown: String
-    let isStreaming: Bool
-    @Binding var contentHeight: CGFloat
+// MARK: - Markdown Segment
+
+private struct MarkdownSegmentView: View {
+    let text: String
+
+    var body: some View {
+        Markdown(text)
+            .markdownTheme(.hermes)
+            .markdownCodeSyntaxHighlighter(.plainText)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Hermes Markdown Theme
+
+extension Theme {
+    @MainActor static let hermes = Theme()
+        .text {
+            FontSize(18)
+            ForegroundColor(.primary)
+        }
+        .codeBlock { configuration in
+            HermesCodeBlockView(configuration: configuration)
+        }
+        .code {
+            FontFamilyVariant(.monospaced)
+            FontSize(.em(0.9))
+            BackgroundColor(.white.opacity(0.08))
+        }
+        .blockquote { configuration in
+            HStack(alignment: .top, spacing: 0) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 3)
+                configuration.label
+                    .padding(.leading, 12)
+            }
+        }
+        .table { configuration in
+            configuration.label
+                .fixedSize(horizontal: false, vertical: true)
+                .markdownTableBorderStyle(.init(.white.opacity(0.12), strokeStyle: .init(lineWidth: 0.5)))
+                .markdownTableBackgroundStyle(.alternatingRows(Color.white.opacity(0.04), Color.clear))
+        }
+        .tableCell { configuration in
+            configuration.label
+                .markdownTableCellBorderStyle(.init(.white.opacity(0.08), strokeStyle: .init(lineWidth: 0.5)))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+        }
+        .listBullet { _ in
+            Text("•")
+                .foregroundStyle(Color.white.opacity(0.5))
+        }
+        .taskListMarker { configuration in
+            Image(systemName: configuration.isCompleted ? "checkmark.square.fill" : "square")
+                .foregroundStyle(configuration.isCompleted ? Color.green : Color.white.opacity(0.4))
+                .imageScale(.small)
+        }
+        .heading1 { configuration in
+            configuration.label
+                .font(.system(size: 24, weight: .bold))
+                .foregroundStyle(.primary)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+        }
+        .heading2 { configuration in
+            configuration.label
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.primary)
+                .padding(.top, 10)
+                .padding(.bottom, 2)
+        }
+        .heading3 { configuration in
+            configuration.label
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.primary)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+        }
+        .paragraph { configuration in
+            configuration.label
+                .relativeLineSpacing(.em(0.2))
+                .markdownMargin(top: 0, bottom: 8)
+        }
+}
+
+// MARK: - Code Block with Copy Button
+
+private struct HermesCodeBlockView: View {
+    let configuration: CodeBlockConfiguration
+    @State private var didCopy = false
+
+    private var title: String {
+        let language = configuration.language?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (language?.isEmpty == false ? language! : "code").uppercased()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header bar
+            HStack {
+                // Copy button
+                Button {
+                    UIPasteboard.general.string = configuration.content
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        didCopy = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            didCopy = false
+                        }
+                    }
+                } label: {
+                    Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(didCopy ? Color.green : Color.white.opacity(0.5))
+                        .frame(width: 28, height: 28)
+                }
+
+                Spacer()
+
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.white.opacity(0.45))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+
+            Divider()
+                .background(Color.white.opacity(0.1))
+
+            // Code content
+            ScrollView(.horizontal, showsIndicators: false) {
+                configuration.label
+                    .relativePadding(.horizontal, length: .rem(1))
+                    .relativePadding(.vertical, length: .rem(0.8))
+            }
+        }
+        .background(Color.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+        )
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Math Block
+
+private struct MathBlockView: View {
+    let tex: String
+
+    var body: some View {
+        LaTeX(tex)
+            .font(.system(size: 18))
+            .foregroundStyle(.primary)
+            .textSelection(.enabled)
+            .errorMode(.original)
+            .blockMode(.blockViews)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity, alignment: .center)
+    }
+}
+
+// MARK: - Mermaid Block
+
+private struct MermaidBlockView: View {
+    let source: String
+    @State private var height: CGFloat = 220
+
+    var body: some View {
+        MermaidWebView(source: source, height: $height)
+            .frame(minHeight: 160, idealHeight: height, maxHeight: max(height, 200))
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+            )
+            .padding(.vertical, 4)
+    }
+}
+
+private struct MermaidWebView: UIViewRepresentable {
+    let source: String
+    @Binding var height: CGFloat
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(contentHeight: $contentHeight)
+        Coordinator(height: $height)
     }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let controller = WKUserContentController()
         controller.add(context.coordinator, name: "resize")
-        controller.add(context.coordinator, name: "copy")
         config.userContentController = controller
-        config.allowsInlineMediaPlayback = true
-        config.defaultWebpagePreferences.allowsContentJavaScript = true
 
         let view = WKWebView(frame: .zero, configuration: config)
-        view.navigationDelegate = context.coordinator
         view.isOpaque = false
         view.backgroundColor = .clear
         view.scrollView.backgroundColor = .clear
         view.scrollView.isScrollEnabled = false
-        view.scrollView.bounces = false
-        view.scrollView.showsVerticalScrollIndicator = false
-        view.scrollView.showsHorizontalScrollIndicator = false
+        view.navigationDelegate = context.coordinator
         context.coordinator.webView = view
-
-        if let tempDir = prepareTempDir() {
-            view.loadFileURL(tempDir.appendingPathComponent("markdown.html"), allowingReadAccessTo: tempDir)
-        }
+        view.loadHTMLString(mermaidHTML, baseURL: nil)
         return view
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
-        context.coordinator.pendingMarkdown = markdown
-        context.coordinator.isStreaming = isStreaming
-        if context.coordinator.didFinishInitialLoad {
-            context.coordinator.scheduleRender(markdown: markdown, isStreaming: isStreaming)
+        context.coordinator.pendingSource = source
+        if context.coordinator.didFinishLoad {
+            context.coordinator.renderPendingSource()
         }
     }
 
-    // MARK: - Temp Directory
-
-    private func prepareTempDir() -> URL? {
-        let fm = FileManager.default
-        guard let cache = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-        let dir = cache.appendingPathComponent("hermes-markdown")
-        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        let bundleRoot = Bundle.main.bundleURL
-        let assets = ["markdown-it.min.js", "highlight-common.min.js", "highlight-github-dark.min.css",
-                       "katex.min.js", "katex.min.css", "katex-auto-render.min.js", "mermaid.min.js"]
-        for asset in assets {
-            let dest = dir.appendingPathComponent(asset)
-            let src = bundleRoot.appendingPathComponent(asset)
-            if !fm.fileExists(atPath: dest.path), fm.fileExists(atPath: src.path) {
-                try? fm.copyItem(at: src, to: dest)
-            }
-        }
-
-        let htmlPath = dir.appendingPathComponent("markdown.html")
-        try? Self.htmlShell.write(to: htmlPath, atomically: true, encoding: .utf8)
-        return dir
+    private var mermaidHTML: String {
+        """
+        <!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+        <style>body{margin:0;background:transparent;display:flex;justify-content:center;align-items:center;min-height:100vh;}
+        svg{max-width:100%!important;height:auto!important;}</style>
+        <script>window.mermaidConfig={startOnLoad:false,theme:'dark',securityLevel:'loose',fontFamily:'system-ui'};</script>
+        <script src="mermaid.min.js"></script>
+        </head><body><div id="mermaid"></div></body></html>
+        """
     }
-
-    // MARK: - HTML Shell
-
-    static let htmlShell = """
-    <!doctype html>
-    <html>
-    <head>
-      <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-      <link rel="stylesheet" href="highlight-github-dark.min.css">
-      <link rel="stylesheet" href="katex.min.css">
-      <style>
-        :root {
-          color-scheme: dark;
-          --fg: rgba(255,255,255,0.94);
-          --muted: rgba(255,255,255,0.55);
-          --code-bg: rgba(255,255,255,0.07);
-          --inline-code-bg: rgba(255,255,255,0.10);
-          --border: rgba(255,255,255,0.10);
-          --link: #8ab4ff;
-          --surface: rgba(255,255,255,0.05);
-          --success: #34c759;
-        }
-        * { box-sizing: border-box; }
-        html, body {
-          margin: 0; padding: 0;
-          background: transparent; color: var(--fg);
-          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          font-size: 18px; line-height: 1.5;
-          overflow: hidden; word-wrap: break-word;
-          -webkit-user-select: text; user-select: text;
-        }
-        #content { padding: 0; margin: 0; }
-        p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6 { margin: 0 0 0.8em 0; }
-        p:last-child, ul:last-child, ol:last-child, blockquote:last-child { margin-bottom: 0; }
-        h1 { font-size: 1.5em; font-weight: 700; } h2 { font-size: 1.35em; font-weight: 650; } h3 { font-size: 1.2em; font-weight: 600; }
-        a { color: var(--link); text-decoration: none; }
-        strong { font-weight: 700; } em { font-style: italic; }
-        code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
-        :not(pre) > code { background: var(--inline-code-bg); border-radius: 8px; padding: 0.15em 0.35em; }
-        pre { background: transparent; border: 0; border-radius: 0; padding: 0; margin: 0; overflow-x: auto; }
-        pre code { background: transparent; padding: 0; font-size: 0.88em; }
-        blockquote { border-left: 3px solid var(--quote, rgba(255,255,255,0.16)); margin-left: 0; padding-left: 14px; color: var(--muted); }
-        ul, ol { padding-left: 1.4em; } li + li { margin-top: 0.25em; }
-        hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
-        table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
-        th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; max-width: 220px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
-        /* Block shell */
-        .block-shell { background: var(--code-bg); border: 1px solid var(--border); border-radius: 14px; margin: 0 0 0.8em 0; overflow: hidden; }
-        .block-shell:last-child { margin-bottom: 0; }
-        .block-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
-        .block-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-right: auto; }
-        .copy-button { appearance: none; -webkit-appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--fg); border-radius: 999px; width: 28px; height: 28px; min-width: 28px; padding: 0; font: inherit; font-size: 13px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .copy-button.copied { background: color-mix(in srgb, var(--success) 18%, var(--surface)); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); color: var(--success); }
-        .block-body { padding: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .block-body pre { overflow: visible; }
-        /* Math */
-        .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.15em 0; }
-        .katex-display > .katex { text-align: left !important; }
-        /* Mermaid */
-        .mermaid-wrap { display: flex; justify-content: center; overflow-x: auto; padding: 8px 0; }
-        .mermaid { display: inline-block; }
-        .mermaid svg { display: block; max-width: 100%; height: auto; }
-        /* Task list */
-        .task-list-item { list-style: none; margin-left: -1.4em; }
-        .task-list-item input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 1.5px solid var(--border); border-radius: 5px; background: transparent; margin-right: 8px; vertical-align: middle; position: relative; top: -1px; }
-        .task-list-item input[type=checkbox]:checked { background: var(--success); border-color: var(--success); }
-        .task-list-item input[type=checkbox]:checked::after { content: '\\2713'; color: #fff; font-size: 12px; font-weight: 700; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); line-height: 1; }
-      </style>
-    </head>
-    <body>
-      <div id="content"></div>
-      <script src="markdown-it.min.js"></script>
-      <script src="highlight-common.min.js"></script>
-      <script src="katex.min.js"></script>
-      <script src="katex-auto-render.min.js"></script>
-      <script src="mermaid.min.js"></script>
-      <script>
-        (function() {
-          var md = window.markdownit({
-            html: false, linkify: true, breaks: true, typographer: true,
-            highlight: function(str, lang) {
-              if (lang && window.hljs && hljs.getLanguage(lang)) {
-                try {
-                  return '<span class="hljs">' + hljs.highlight(str, { language: lang, ignoreIllegals: true }).value + '</span>';
-                } catch(e) {}
-              }
-              return md.utils.escapeHtml(str);
-            }
-          });
-
-          window.decodeBase64 = function(value) {
-            var binary = atob(value);
-            var bytes = new Uint8Array(binary.length);
-            for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
-            return new TextDecoder().decode(bytes);
-          };
-
-          function postHeight() {
-            var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight,
-                             document.getElementById('content').scrollHeight);
-            window.webkit.messageHandlers.resize.postMessage(h);
-          }
-
-          function makeCopyButton(label, text) {
-            var btn = document.createElement('button');
-            btn.className = 'copy-button';
-            btn.type = 'button';
-            btn.setAttribute('aria-label', 'Copy ' + label);
-            btn.innerHTML = '<span>\\u29C9</span>';
-            btn.addEventListener('click', function() {
-              window.webkit.messageHandlers.copy.postMessage({ text: text });
-              btn.classList.add('copied');
-              btn.innerHTML = '<span>\\u2713</span>';
-              clearTimeout(btn._timer);
-              btn._timer = setTimeout(function() {
-                btn.classList.remove('copied');
-                btn.innerHTML = '<span>\\u29C9</span>';
-              }, 1600);
-            });
-            return btn;
-          }
-
-          function makeBlockShell(label, copyText, bodyNode) {
-            var shell = document.createElement('div');
-            shell.className = 'block-shell';
-            var header = document.createElement('div');
-            header.className = 'block-header';
-            var btn = makeCopyButton(label, copyText);
-            var title = document.createElement('div');
-            title.className = 'block-label';
-            title.textContent = label;
-            header.appendChild(btn);
-            header.appendChild(title);
-            var body = document.createElement('div');
-            body.className = 'block-body';
-            body.appendChild(bodyNode);
-            shell.appendChild(header);
-            shell.appendChild(body);
-            return shell;
-          }
-
-          function each(list, fn) {
-            for (var i = 0; i < list.length; i++) { fn(list[i], i); }
-          }
-
-          function toArray(nodeList) {
-            var arr = [];
-            for (var i = 0; i < nodeList.length; i++) { arr.push(nodeList[i]); }
-            return arr;
-          }
-
-          function upgradeCheckboxes() {
-            each(toArray(document.querySelectorAll('#content li')), function(li) {
-              var text = li.innerHTML;
-              var m;
-              if ((m = text.match(/^\\[ \\]/)) || (m = text.match(/^\\[x\\]/i))) {
-                li.classList.add('task-list-item');
-                li.innerHTML = '<input type="checkbox" ' + (m[0].toLowerCase() === '[x]' ? 'checked' : '') + ' disabled>' + text.slice(3).replace(/^\\s+/, '');
-              }
-            });
-          }
-
-          function upgradeCodeBlocks() {
-            each(toArray(document.querySelectorAll('#content pre code')), function(code) {
-              if (/language-mermaid|language-math/.test(code.className)) return;
-              var pre = code.parentElement;
-              if (!pre || pre.tagName !== 'PRE') return;
-
-              var lang = 'code';
-              each(toArray(code.classList), function(cls) {
-                if (cls.indexOf('language-') === 0) { lang = cls.replace('language-', ''); }
-              });
-
-              pre.replaceWith(makeBlockShell(lang, code.textContent || '', pre));
-            });
-          }
-
-          function upgradeMathBlocks() {
-            each(toArray(document.querySelectorAll('#content pre code.language-math')), function(code) {
-              var pre = code.parentElement;
-              var wrapper = document.createElement('div');
-              wrapper.className = 'katex-display';
-              try {
-                katex.render(code.textContent, wrapper, { displayMode: true, throwOnError: false });
-                pre.replaceWith(makeBlockShell('math', code.textContent || '', wrapper));
-              } catch(e) {}
-            });
-          }
-
-          function upgradeMermaidBlocks() {
-            var blocks = toArray(document.querySelectorAll('#content pre code.language-mermaid'));
-            if (blocks.length === 0) return;
-
-            each(blocks, function(code) {
-              var pre = code.parentElement;
-              var source = code.textContent || '';
-              var wrapper = document.createElement('div');
-              wrapper.className = 'mermaid-wrap';
-              var target = document.createElement('div');
-              target.className = 'mermaid';
-              target.textContent = source;
-              wrapper.appendChild(target);
-              pre.replaceWith(makeBlockShell('mermaid', source, wrapper));
-            });
-
-            try {
-              mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
-              mermaid.run({ querySelector: '.mermaid' }).then(function() {
-                postHeight();
-                setTimeout(postHeight, 100);
-                setTimeout(postHeight, 400);
-              }).catch(function(e) {
-                console.error('mermaid error:', e);
-              });
-            } catch(e) {
-              console.error('mermaid init error:', e);
-            }
-          }
-
-          window.renderMarkdown = function(base64) {
-            var markdown = window.decodeBase64(base64);
-            var content = document.getElementById('content');
-            content.innerHTML = md.render(markdown);
-
-            upgradeCheckboxes();
-            upgradeCodeBlocks();
-
-            // Render math with katex-auto-render
-            if (window.renderMathInElement) {
-              try {
-                renderMathInElement(content, {
-                  delimiters: [
-                    { left: '\\$\\$', right: '\\$\\$', display: true },
-                    { left: '\\$',   right: '\\$',   display: false }
-                  ],
-                  throwOnError: false
-                });
-              } catch(e) {}
-            }
-
-            // Also handle fenced math code blocks
-            upgradeMathBlocks();
-
-            // Mermaid diagrams
-            upgradeMermaidBlocks();
-
-            postHeight();
-            setTimeout(postHeight, 60);
-            setTimeout(postHeight, 250);
-          };
-
-          var observer = new MutationObserver(function() { postHeight(); });
-          observer.observe(document.getElementById('content'), { childList: true, subtree: true, attributes: true, characterData: true });
-          window.addEventListener('load', postHeight);
-          window.addEventListener('resize', postHeight);
-        })();
-      </script>
-    </body>
-    </html>
-    """
-
-    // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        @Binding var contentHeight: CGFloat
+        @Binding var height: CGFloat
         weak var webView: WKWebView?
-        var pendingMarkdown = ""
-        var didFinishInitialLoad = false
-        var isStreaming = false
-        private var pendingWorkItem: DispatchWorkItem?
+        var pendingSource = ""
+        var didFinishLoad = false
 
-        init(contentHeight: Binding<CGFloat>) {
-            self._contentHeight = contentHeight
-            super.init()
+        init(height: Binding<CGFloat>) {
+            self._height = height
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            didFinishInitialLoad = true
-            scheduleRender(markdown: pendingMarkdown, isStreaming: isStreaming)
+            didFinishLoad = true
+            renderPendingSource()
         }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void) {
-            if navigationAction.navigationType == .linkActivated, let url = navigationAction.request.url {
-                UIApplication.shared.open(url)
-                decisionHandler(.cancel)
-                return
-            }
-            decisionHandler(.allow)
+        func renderPendingSource() {
+            guard !pendingSource.isEmpty else { return }
+            let source = pendingSource
+            pendingSource = ""
+            let escaped = source
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "`", with: "\\`")
+                .replacingOccurrences(of: "$", with: "\\$")
+            let js = """
+            (async function(){
+              var el=document.getElementById('mermaid');
+              el.textContent='';
+              el.removeAttribute('data-processed');
+              try{
+                var d=document.createElement('div');
+                d.textContent=`\(escaped)`;
+                el.appendChild(d);
+                await mermaid.run({nodes:[el]});
+                var h=el.scrollHeight || 200;
+                window.webkit.messageHandlers.resize.postMessage(h);
+              }catch(e){
+                el.innerHTML='<pre style="color:#999;padding:16px;font-size:13px;">'+e.message+'</pre>';
+                window.webkit.messageHandlers.resize.postMessage(160);
+              }
+            })();
+            """
+            webView?.evaluateJavaScript(js)
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-            switch message.name {
-            case "resize":
-                if let value = message.body as? Double {
-                    Task { @MainActor in contentHeight = max(24, value) }
+            if message.name == "resize", let h = message.body as? CGFloat {
+                DispatchQueue.main.async {
+                    self.height = h
                 }
-            case "copy":
-                if let body = message.body as? [String: Any], let text = body["text"] as? String {
-                    UIPasteboard.general.string = text
-                }
-            default: break
             }
-        }
-
-        func scheduleRender(markdown: String, isStreaming: Bool) {
-            pendingWorkItem?.cancel()
-            let workItem = DispatchWorkItem { [weak self] in self?.render(markdown: markdown) }
-            pendingWorkItem = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + (isStreaming ? 0.06 : 0), execute: workItem)
-        }
-
-        func render(markdown: String) {
-            guard let webView else { return }
-            let encoded = Data(markdown.utf8).base64EncodedString()
-            webView.evaluateJavaScript("window.renderMarkdown(\(jsonLiteral(encoded)));")
-        }
-
-        private func jsonLiteral(_ s: String) -> String {
-            let d = try? JSONSerialization.data(withJSONObject: [s], options: [])
-            let j = String(data: d ?? Data("[\"\"]".utf8), encoding: .utf8) ?? "[\"\"]"
-            return String(j.dropFirst().dropLast())
         }
     }
 }
