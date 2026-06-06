@@ -42,11 +42,8 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
         view.scrollView.showsHorizontalScrollIndicator = false
         context.coordinator.webView = view
 
-        // Write HTML + assets to temp directory, then load via file URL
-        if let tempDir = prepareTempAssets() {
+        if let tempDir = prepareTempDir() {
             view.loadFileURL(tempDir.appendingPathComponent("markdown.html"), allowingReadAccessTo: tempDir)
-        } else {
-            view.loadHTMLString(Self.htmlShell, baseURL: nil)
         }
         return view
     }
@@ -59,54 +56,27 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
         }
     }
 
-    // MARK: - Temp Asset Preparation
+    // MARK: - Temp Directory
 
-    private func prepareTempAssets() -> URL? {
+    private func prepareTempDir() -> URL? {
         let fm = FileManager.default
         guard let cache = fm.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
         let dir = cache.appendingPathComponent("hermes-markdown")
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        // Copy JS/CSS assets from bundle to temp dir
-        let assets = [
-            "markdown-it.min.js",
-            "highlight-common.min.js",
-            "highlight-github-dark.min.css",
-            "katex.min.js",
-            "katex.min.css",
-            "katex-auto-render.min.js",
-            "mermaid.min.js",
-        ]
+        let bundleRoot = Bundle.main.bundleURL
+        let assets = ["markdown-it.min.js", "highlight-common.min.js", "highlight-github-dark.min.css",
+                       "katex.min.js", "katex.min.css", "katex-auto-render.min.js", "mermaid.min.js"]
         for asset in assets {
             let dest = dir.appendingPathComponent(asset)
-            if !fm.fileExists(atPath: dest.path),
-               let srcPath = Bundle.main.path(forResource: asset.replacingOccurrences(of: ".min.", with: "").split(separator: ".").first.map(String.init) ?? asset, ofType: nil) ?? Bundle.main.url(forResource: asset, withExtension: nil)?.path,
-               let srcPath2 = Bundle.main.path(forResource: asset, ofType: nil) {
-                try? fm.copyItem(atPath: srcPath2, toPath: dest.path)
-            } else if !fm.fileExists(atPath: dest.path) {
-                // Try loading from bundle root directly
-                if let src = Bundle.main.url(forResource: asset, withExtension: nil) {
-                    try? fm.copyItem(at: src, to: dest)
-                }
+            let src = bundleRoot.appendingPathComponent(asset)
+            if !fm.fileExists(atPath: dest.path), fm.fileExists(atPath: src.path) {
+                try? fm.copyItem(at: src, to: dest)
             }
         }
 
-        // Also try direct path
-        for asset in assets {
-            let dest = dir.appendingPathComponent(asset)
-            if !fm.fileExists(atPath: dest.path) {
-                let bundleFile = Bundle.main.bundleURL.appendingPathComponent(asset)
-                if fm.fileExists(atPath: bundleFile.path) {
-                    try? fm.copyItem(at: bundleFile, to: dest)
-                }
-            }
-        }
-
-        // Write HTML file with local asset references
         let htmlPath = dir.appendingPathComponent("markdown.html")
-        if !fm.fileExists(atPath: htmlPath.path) {
-            try? Self.htmlShell.write(to: htmlPath, atomically: true, encoding: .utf8)
-        }
+        try? Self.htmlShell.write(to: htmlPath, atomically: true, encoding: .utf8)
         return dir
     }
 
@@ -122,58 +92,56 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
       <style>
         :root {
           color-scheme: dark;
-          --fg: rgba(255,255,255,0.96);
-          --muted: rgba(255,255,255,0.72);
-          --quote: rgba(255,255,255,0.16);
-          --code-bg: rgba(255,255,255,0.08);
+          --fg: rgba(255,255,255,0.94);
+          --muted: rgba(255,255,255,0.55);
+          --code-bg: rgba(255,255,255,0.07);
           --inline-code-bg: rgba(255,255,255,0.10);
           --border: rgba(255,255,255,0.10);
           --link: #8ab4ff;
-          --surface: rgba(255,255,255,0.06);
+          --surface: rgba(255,255,255,0.05);
           --success: #34c759;
         }
         * { box-sizing: border-box; }
         html, body {
-          margin: 0;
-          padding: 0;
-          background: transparent;
-          color: var(--fg);
+          margin: 0; padding: 0;
+          background: transparent; color: var(--fg);
           font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-          font-size: 18px;
-          line-height: 1.5;
-          overflow: hidden;
-          word-wrap: break-word;
-          -webkit-user-select: text;
-          user-select: text;
+          font-size: 18px; line-height: 1.5;
+          overflow: hidden; word-wrap: break-word;
+          -webkit-user-select: text; user-select: text;
         }
         #content { padding: 0; margin: 0; }
-        p, ul, ol, blockquote, pre, table, h1, h2, h3, h4, h5, h6 { margin: 0 0 0.8em 0; }
-        p:last-child, ul:last-child, ol:last-child, blockquote:last-child, pre:last-child, table:last-child { margin-bottom: 0; }
-        h1, h2, h3, h4, h5, h6 { line-height: 1.25; font-weight: 650; }
-        h1 { font-size: 1.5em; } h2 { font-size: 1.35em; } h3 { font-size: 1.2em; }
+        p, ul, ol, blockquote, h1, h2, h3, h4, h5, h6 { margin: 0 0 0.8em 0; }
+        p:last-child, ul:last-child, ol:last-child, blockquote:last-child { margin-bottom: 0; }
+        h1 { font-size: 1.5em; font-weight: 700; } h2 { font-size: 1.35em; font-weight: 650; } h3 { font-size: 1.2em; font-weight: 600; }
         a { color: var(--link); text-decoration: none; }
         strong { font-weight: 700; } em { font-style: italic; }
         code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
         :not(pre) > code { background: var(--inline-code-bg); border-radius: 8px; padding: 0.15em 0.35em; }
         pre { background: transparent; border: 0; border-radius: 0; padding: 0; margin: 0; overflow-x: auto; }
         pre code { background: transparent; padding: 0; font-size: 0.88em; }
-        blockquote { border-left: 3px solid var(--quote); margin-left: 0; padding-left: 14px; color: var(--muted); }
+        blockquote { border-left: 3px solid var(--quote, rgba(255,255,255,0.16)); margin-left: 0; padding-left: 14px; color: var(--muted); }
         ul, ol { padding-left: 1.4em; } li + li { margin-top: 0.25em; }
         hr { border: 0; border-top: 1px solid var(--border); margin: 1em 0; }
         table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
         th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; max-width: 220px; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+        /* Block shell */
         .block-shell { background: var(--code-bg); border: 1px solid var(--border); border-radius: 14px; margin: 0 0 0.8em 0; overflow: hidden; }
-        .block-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface); }
-        .block-label { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
-        .copy-button { appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--fg); border-radius: 999px; width: 30px; height: 30px; padding: 0; font: inherit; font-size: 14px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-        .copy-button.copied { background: color-mix(in srgb, var(--success) 18%, var(--surface)); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); color: var(--success); }
-        .block-body { padding: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .block-body pre { overflow: visible; }
         .block-shell:last-child { margin-bottom: 0; }
+        .block-header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+        .block-label { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-right: auto; }
+        .copy-button { appearance: none; -webkit-appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--fg); border-radius: 999px; width: 28px; height: 28px; min-width: 28px; padding: 0; font: inherit; font-size: 13px; font-weight: 700; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .copy-button.copied { background: color-mix(in srgb, var(--success) 18%, var(--surface)); border-color: color-mix(in srgb, var(--success) 45%, var(--border)); color: var(--success); }
+        .block-body { padding: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .block-body pre { overflow: visible; }
+        /* Math */
         .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.15em 0; }
-        .mermaid-wrap { overflow-x: auto; }
-        .mermaid { min-width: fit-content; }
+        .katex-display > .katex { text-align: left !important; }
+        /* Mermaid */
+        .mermaid-wrap { display: flex; justify-content: center; overflow-x: auto; padding: 8px 0; }
+        .mermaid { display: inline-block; }
         .mermaid svg { display: block; max-width: 100%; height: auto; }
+        /* Task list */
         .task-list-item { list-style: none; margin-left: -1.4em; }
         .task-list-item input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 1.5px solid var(--border); border-radius: 5px; background: transparent; margin-right: 8px; vertical-align: middle; position: relative; top: -1px; }
         .task-list-item input[type=checkbox]:checked { background: var(--success); border-color: var(--success); }
@@ -188,175 +156,185 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
       <script src="katex-auto-render.min.js"></script>
       <script src="mermaid.min.js"></script>
       <script>
-        const md = window.markdownit({
-          html: false, linkify: true, breaks: true, typographer: true,
-          highlight: (str, lang) => {
-            const escaped = md.utils.escapeHtml(str);
-            if (lang && window.hljs && hljs.getLanguage(lang)) {
-              try {
-                const highlighted = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
-                return '<span class="hljs">' + highlighted + '</span>';
-              } catch (_) {}
+        (function() {
+          var md = window.markdownit({
+            html: false, linkify: true, breaks: true, typographer: true,
+            highlight: function(str, lang) {
+              if (lang && window.hljs && hljs.getLanguage(lang)) {
+                try {
+                  return '<span class="hljs">' + hljs.highlight(str, { language: lang, ignoreIllegals: true }).value + '</span>';
+                } catch(e) {}
+              }
+              return md.utils.escapeHtml(str);
             }
-            return escaped;
-          }
-        });
-
-        function decodeBase64Unicode(value) {
-          const binary = atob(value);
-          const bytes = Uint8Array.from(binary, function(c) { return c.charCodeAt(0); });
-          return new TextDecoder().decode(bytes);
-        }
-
-        function postHeight() {
-          var height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.getElementById('content').scrollHeight);
-          window.webkit.messageHandlers.resize.postMessage(height);
-        }
-
-        function copyIcon() { return '\\u29C9'; }
-        function checkIcon() { return '\\u2713'; }
-
-        function makeCopyButton(label, text) {
-          var button = document.createElement('button');
-          button.className = 'copy-button';
-          button.type = 'button';
-          button.setAttribute('aria-label', 'Copy ' + label);
-          button.innerHTML = '<span>' + copyIcon() + '</span>';
-          button.addEventListener('click', function() {
-            window.webkit.messageHandlers.copy.postMessage({ text: text });
-            button.classList.add('copied');
-            button.innerHTML = '<span>' + checkIcon() + '</span>';
-            clearTimeout(button._copyResetTimer);
-            button._copyResetTimer = setTimeout(function() {
-              button.classList.remove('copied');
-              button.innerHTML = '<span>' + copyIcon() + '</span>';
-            }, 1600);
           });
-          return button;
-        }
 
-        function makeBlockShell(label, copyText, contentNode) {
-          var shell = document.createElement('div');
-          shell.className = 'block-shell';
-          var header = document.createElement('div');
-          header.className = 'block-header';
-          var title = document.createElement('div');
-          title.className = 'block-label';
-          title.textContent = label;
-          header.appendChild(title);
-          header.appendChild(makeCopyButton(label, copyText));
-          var body = document.createElement('div');
-          body.className = 'block-body';
-          body.appendChild(contentNode);
-          shell.appendChild(header);
-          shell.appendChild(body);
-          return shell;
-        }
+          window.decodeBase64 = function(value) {
+            var binary = atob(value);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) { bytes[i] = binary.charCodeAt(i); }
+            return new TextDecoder().decode(bytes);
+          };
 
-        function upgradeCheckboxes() {
-          var items = Array.from(document.querySelectorAll('#content li'));
-          for (var i = 0; i < items.length; i++) {
-            var li = items[i];
-            var text = li.innerHTML;
-            var unchecked = text.match(/^\\[ \\]/);
-            var checked = text.match(/^\\[x\\]/i);
-            if (unchecked || checked) {
-              li.classList.add('task-list-item');
-              var isChecked = !!checked;
-              li.innerHTML = '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' disabled>' + text.slice(3).trimStart();
+          function postHeight() {
+            var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight,
+                             document.getElementById('content').scrollHeight);
+            window.webkit.messageHandlers.resize.postMessage(h);
+          }
+
+          function makeCopyButton(label, text) {
+            var btn = document.createElement('button');
+            btn.className = 'copy-button';
+            btn.type = 'button';
+            btn.setAttribute('aria-label', 'Copy ' + label);
+            btn.innerHTML = '<span>\\u29C9</span>';
+            btn.addEventListener('click', function() {
+              window.webkit.messageHandlers.copy.postMessage({ text: text });
+              btn.classList.add('copied');
+              btn.innerHTML = '<span>\\u2713</span>';
+              clearTimeout(btn._timer);
+              btn._timer = setTimeout(function() {
+                btn.classList.remove('copied');
+                btn.innerHTML = '<span>\\u29C9</span>';
+              }, 1600);
+            });
+            return btn;
+          }
+
+          function makeBlockShell(label, copyText, bodyNode) {
+            var shell = document.createElement('div');
+            shell.className = 'block-shell';
+            var header = document.createElement('div');
+            header.className = 'block-header';
+            var btn = makeCopyButton(label, copyText);
+            var title = document.createElement('div');
+            title.className = 'block-label';
+            title.textContent = label;
+            header.appendChild(btn);
+            header.appendChild(title);
+            var body = document.createElement('div');
+            body.className = 'block-body';
+            body.appendChild(bodyNode);
+            shell.appendChild(header);
+            shell.appendChild(body);
+            return shell;
+          }
+
+          function each(list, fn) {
+            for (var i = 0; i < list.length; i++) { fn(list[i], i); }
+          }
+
+          function toArray(nodeList) {
+            var arr = [];
+            for (var i = 0; i < nodeList.length; i++) { arr.push(nodeList[i]); }
+            return arr;
+          }
+
+          function upgradeCheckboxes() {
+            each(toArray(document.querySelectorAll('#content li')), function(li) {
+              var text = li.innerHTML;
+              var m;
+              if ((m = text.match(/^\\[ \\]/)) || (m = text.match(/^\\[x\\]/i))) {
+                li.classList.add('task-list-item');
+                li.innerHTML = '<input type="checkbox" ' + (m[0].toLowerCase() === '[x]' ? 'checked' : '') + ' disabled>' + text.slice(3).replace(/^\\s+/, '');
+              }
+            });
+          }
+
+          function upgradeCodeBlocks() {
+            each(toArray(document.querySelectorAll('#content pre code')), function(code) {
+              if (/language-mermaid|language-math/.test(code.className)) return;
+              var pre = code.parentElement;
+              if (!pre || pre.tagName !== 'PRE') return;
+
+              var lang = 'code';
+              each(toArray(code.classList), function(cls) {
+                if (cls.indexOf('language-') === 0) { lang = cls.replace('language-', ''); }
+              });
+
+              pre.replaceWith(makeBlockShell(lang, code.textContent || '', pre));
+            });
+          }
+
+          function upgradeMathBlocks() {
+            each(toArray(document.querySelectorAll('#content pre code.language-math')), function(code) {
+              var pre = code.parentElement;
+              var wrapper = document.createElement('div');
+              wrapper.className = 'katex-display';
+              try {
+                katex.render(code.textContent, wrapper, { displayMode: true, throwOnError: false });
+                pre.replaceWith(makeBlockShell('math', code.textContent || '', wrapper));
+              } catch(e) {}
+            });
+          }
+
+          function upgradeMermaidBlocks() {
+            var blocks = toArray(document.querySelectorAll('#content pre code.language-mermaid'));
+            if (blocks.length === 0) return;
+
+            each(blocks, function(code) {
+              var pre = code.parentElement;
+              var source = code.textContent || '';
+              var wrapper = document.createElement('div');
+              wrapper.className = 'mermaid-wrap';
+              var target = document.createElement('div');
+              target.className = 'mermaid';
+              target.textContent = source;
+              wrapper.appendChild(target);
+              pre.replaceWith(makeBlockShell('mermaid', source, wrapper));
+            });
+
+            try {
+              mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+              mermaid.run({ querySelector: '.mermaid' }).then(function() {
+                postHeight();
+                setTimeout(postHeight, 100);
+                setTimeout(postHeight, 400);
+              }).catch(function(e) {
+                console.error('mermaid error:', e);
+              });
+            } catch(e) {
+              console.error('mermaid init error:', e);
             }
           }
-        }
 
-        function upgradeCodeBlocks() {
-          var blocks = Array.from(document.querySelectorAll('#content pre code'));
-          for (var i = 0; i < blocks.length; i++) {
-            var code = blocks[i];
-            if (code.classList.contains('language-mermaid') || code.classList.contains('language-math')) continue;
-            var pre = code.parentElement;
-            if (!pre || pre.tagName !== 'PRE') continue;
-            var langClass = Array.from(code.classList).find(function(name) { return name.startsWith('language-'); });
-            var lang = langClass ? langClass.replace('language-', '') : 'code';
-            pre.replaceWith(makeBlockShell(lang, code.textContent || '', pre));
-          }
-        }
+          window.renderMarkdown = function(base64) {
+            var markdown = window.decodeBase64(base64);
+            var content = document.getElementById('content');
+            content.innerHTML = md.render(markdown);
 
-        function upgradeMathBlocks() {
-          var blocks = Array.from(document.querySelectorAll('#content pre code.language-math'));
-          for (var i = 0; i < blocks.length; i++) {
-            var code = blocks[i];
-            var pre = code.parentElement;
-            var wrapper = document.createElement('div');
-            wrapper.className = 'katex-display';
-            try {
-              katex.render(code.textContent, wrapper, { displayMode: true, throwOnError: false });
-              pre.replaceWith(makeBlockShell('math', code.textContent || '', wrapper));
-            } catch (_) {}
-          }
-        }
+            upgradeCheckboxes();
+            upgradeCodeBlocks();
 
-        function upgradeMermaidBlocks() {
-          var blocks = Array.from(document.querySelectorAll('#content pre code.language-mermaid'));
-          if (blocks.length === 0) return;
-          for (var i = 0; i < blocks.length; i++) {
-            var code = blocks[i];
-            var pre = code.parentElement;
-            var source = code.textContent || '';
-            var wrapper = document.createElement('div');
-            wrapper.className = 'mermaid-wrap';
-            var target = document.createElement('div');
-            target.className = 'mermaid';
-            target.textContent = source;
-            wrapper.appendChild(target);
-            pre.replaceWith(makeBlockShell('mermaid', source, wrapper));
-          }
-          try {
-            mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
-            mermaid.run({ querySelector: '.mermaid' }).then(function() {
-              postHeight();
-              setTimeout(postHeight, 100);
-              setTimeout(postHeight, 400);
-            });
-          } catch(e) {
-            console.error('mermaid error:', e);
-          }
-        }
+            // Render math with katex-auto-render
+            if (window.renderMathInElement) {
+              try {
+                renderMathInElement(content, {
+                  delimiters: [
+                    { left: '\\$\\$', right: '\\$\\$', display: true },
+                    { left: '\\$',   right: '\\$',   display: false }
+                  ],
+                  throwOnError: false
+                });
+              } catch(e) {}
+            }
 
-        function renderMarkdown(base64) {
-          var markdown = decodeBase64Unicode(base64);
-          var content = document.getElementById('content');
-          content.innerHTML = md.render(markdown);
+            // Also handle fenced math code blocks
+            upgradeMathBlocks();
 
-          upgradeCheckboxes();
-          upgradeCodeBlocks();
+            // Mermaid diagrams
+            upgradeMermaidBlocks();
 
-          if (window.renderMathInElement) {
-            try {
-              renderMathInElement(content, {
-                delimiters: [
-                  { left: '\\$\\$', right: '\\$\\$', display: true },
-                  { left: '\\$', right: '\\$', display: false },
-                  { left: '\\\\(', right: '\\\\)', display: false },
-                  { left: '\\\\[', right: '\\\\]', display: true }
-                ],
-                throwOnError: false
-              });
-            } catch(e) {}
-          }
+            postHeight();
+            setTimeout(postHeight, 60);
+            setTimeout(postHeight, 250);
+          };
 
-          upgradeMathBlocks();
-          upgradeMermaidBlocks();
-
-          postHeight();
-          setTimeout(postHeight, 50);
-          setTimeout(postHeight, 200);
-        }
-
-        var observer = new MutationObserver(function() { postHeight(); });
-        observer.observe(document.getElementById('content'), { childList: true, subtree: true, attributes: true, characterData: true });
-        window.addEventListener('load', postHeight);
-        window.addEventListener('resize', postHeight);
-        window.renderMarkdown = renderMarkdown;
+          var observer = new MutationObserver(function() { postHeight(); });
+          observer.observe(document.getElementById('content'), { childList: true, subtree: true, attributes: true, characterData: true });
+          window.addEventListener('load', postHeight);
+          window.addEventListener('resize', postHeight);
+        })();
       </script>
     </body>
     </html>
@@ -395,40 +373,33 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
             switch message.name {
             case "resize":
                 if let value = message.body as? Double {
-                    Task { @MainActor in
-                        contentHeight = max(24, value)
-                    }
+                    Task { @MainActor in contentHeight = max(24, value) }
                 }
             case "copy":
                 if let body = message.body as? [String: Any], let text = body["text"] as? String {
                     UIPasteboard.general.string = text
                 }
-            default:
-                break
+            default: break
             }
         }
 
         func scheduleRender(markdown: String, isStreaming: Bool) {
             pendingWorkItem?.cancel()
-            let workItem = DispatchWorkItem { [weak self] in
-                self?.render(markdown: markdown)
-            }
+            let workItem = DispatchWorkItem { [weak self] in self?.render(markdown: markdown) }
             pendingWorkItem = workItem
-            let delay: TimeInterval = isStreaming ? 0.06 : 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+            DispatchQueue.main.asyncAfter(deadline: .now() + (isStreaming ? 0.06 : 0), execute: workItem)
         }
 
         func render(markdown: String) {
             guard let webView else { return }
             let encoded = Data(markdown.utf8).base64EncodedString()
-            let script = "window.renderMarkdown(\(jsonStringLiteral(encoded)));"
-            webView.evaluateJavaScript(script)
+            webView.evaluateJavaScript("window.renderMarkdown(\(jsonLiteral(encoded)));")
         }
 
-        private func jsonStringLiteral(_ string: String) -> String {
-            let data = try? JSONSerialization.data(withJSONObject: [string], options: [])
-            let json = String(data: data ?? Data("[\"\"]".utf8), encoding: .utf8) ?? "[\"\"]"
-            return String(json.dropFirst().dropLast())
+        private func jsonLiteral(_ s: String) -> String {
+            let d = try? JSONSerialization.data(withJSONObject: [s], options: [])
+            let j = String(data: d ?? Data("[\"\"]".utf8), encoding: .utf8) ?? "[\"\"]"
+            return String(j.dropFirst().dropLast())
         }
     }
 }
