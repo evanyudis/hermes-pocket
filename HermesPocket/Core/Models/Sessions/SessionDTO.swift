@@ -113,7 +113,7 @@ struct SessionDTO: Decodable, Equatable {
 }
 
 struct MessageDTO: Decodable, Equatable, Identifiable {
-    let id = UUID()
+    let id: UUID
     let role: String
     let content: MessageContentDTO
     let timestamp: Double?
@@ -132,7 +132,8 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
         case role, content, timestamp
     }
 
-    init(role: String, content: MessageContentDTO, timestamp: Double?, attachments: [AttachmentDTO] = []) {
+    init(id: UUID = UUID(), role: String, content: MessageContentDTO, timestamp: Double?, attachments: [AttachmentDTO] = []) {
+        self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
@@ -141,6 +142,7 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = UUID()
         role = try container.decodeIfPresent(String.self, forKey: .role) ?? "assistant"
         content = try container.decodeIfPresent(MessageContentDTO.self, forKey: .content) ?? .text("")
         timestamp = try container.decodeIfPresent(Double.self, forKey: .timestamp)

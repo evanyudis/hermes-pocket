@@ -21,6 +21,7 @@ struct ChatComposerView: View {
     let onSend: () -> Void
     let onStop: () -> Void
     let onFetchModels: () async -> Void
+    let onHeightChange: (CGFloat) -> Void
     let focus: FocusState<Bool>.Binding
 
     private var hasDraft: Bool {
@@ -53,10 +54,14 @@ struct ChatComposerView: View {
                     HStack(spacing: 10) {
                         ForEach(stagedAttachments, id: \.path) { attachment in
                             AttachmentCardView(attachment: attachment, style: .composer) {
-                                stagedAttachments.removeAll { $0.path == attachment.path }
+                                withAnimation(easeOut) {
+                                    stagedAttachments.removeAll { $0.path == attachment.path }
+                                }
                             }
+                            .transition(.move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.96)))
                         }
                     }
+                    .animation(easeOut, value: stagedAttachments.count)
                 }
             }
 
@@ -65,7 +70,7 @@ struct ChatComposerView: View {
                 text: $draft,
                 axis: .vertical
             )
-            .font(.system(size: 17, weight: hasDraft ? .semibold : .regular))
+            .font(.system(size: 18, weight: hasDraft ? .semibold : .regular))
             .foregroundStyle(.primary)
             .lineLimit(1...6)
             .disabled(pendingClarify != nil)
@@ -162,6 +167,17 @@ struct ChatComposerView: View {
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
         .padding(.top, 0)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        onHeightChange(proxy.size.height)
+                    }
+                    .onChange(of: proxy.size.height) { _, height in
+                        onHeightChange(height)
+                    }
+            }
+        )
         .animation(easeOut, value: isExpanded)
         .task {
             if availableModels.isEmpty && !isFetchingModels {

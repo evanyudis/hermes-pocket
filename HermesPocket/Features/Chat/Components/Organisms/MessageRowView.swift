@@ -3,6 +3,7 @@ import SwiftUI
 struct MessageRowView: View {
     let message: MessageDTO
     let isStreaming: Bool
+    let isAwaitingStart: Bool
     let previousRole: String?
 
     private var isUser: Bool { message.role == "user" }
@@ -42,30 +43,28 @@ struct MessageRowView: View {
                     messageText(message.displayText)
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 34, style: .continuous)
                     .fill(Color.white.opacity(0.1))
             )
-        } else if isStreaming && !hasText {
+        } else if (isStreaming || isAwaitingStart) && !hasText {
             StreamingDotsView()
                 .padding(.vertical, 10)
+                .frame(height: 28, alignment: .leading)
         } else {
-            HStack(alignment: .lastTextBaseline, spacing: 3) {
-                messageText(message.displayText.isEmpty ? "Thinking..." : message.displayText)
-
-                if isStreaming {
-                    StreamingCursorView()
-                }
-            }
+            ChatMarkdownView(
+                markdown: message.displayText.isEmpty ? "Thinking..." : message.displayText,
+                isStreaming: isStreaming
+            )
             .padding(.vertical, 4)
         }
     }
 
     private func messageText(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 21, weight: .regular))
+            .font(.system(size: 18, weight: .regular))
             .foregroundStyle(.primary)
             .lineSpacing(6)
             .tracking(-0.2)

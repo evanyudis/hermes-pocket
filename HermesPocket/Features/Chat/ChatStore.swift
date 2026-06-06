@@ -14,6 +14,7 @@ final class ChatStore {
     var activeStreamID: String?
     var isLoading = false
     var isStreaming = false
+    var isAwaitingAssistantStart = false
     var lastError: String?
     var pendingApproval: ApprovalPendingDTO?
     var pendingApprovalCount = 0

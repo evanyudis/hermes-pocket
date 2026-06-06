@@ -31,12 +31,18 @@ final class AppState {
     @ObservationIgnored let credentialStore = CredentialStore()
     @ObservationIgnored private var apiClient: HermesAPIClientProtocol?
     @ObservationIgnored private var streamTask: Task<Void, Never>?
+    @ObservationIgnored private var didReceiveDoneForActiveStream = false
     @ObservationIgnored private var didBootstrap = false
     @ObservationIgnored private let logger = Logger(subsystem: "com.evanyudis.hermes-pocket", category: "ChatStream")
 
     init() {
+        // Dev convenience: persist backend URL + session cookie so reinstalling
+        // the app does not force re-entry during local development.
         let savedBaseURL = credentialStore.loadBaseURL()
         connection.baseURLString = savedBaseURL
+        if connection.baseURL != nil {
+            credentialStore.loadCookies().forEach { HTTPCookieStorage.shared.setCookie($0) }
+        }
         defaultModel = credentialStore.loadDefaultModel()
         defaultModelProvider = credentialStore.loadDefaultModelProvider()
         isStreamDebugLoggingEnabled = credentialStore.loadStreamDebugLoggingEnabled()
@@ -73,6 +79,9 @@ final class AppState {
             let status = try await client.authStatus()
             auth.authEnabled = status.authEnabled
             auth.isLoggedIn = status.loggedIn || !status.authEnabled
+            if let baseURL = connection.baseURL {
+                credentialStore.saveCookies(HTTPCookieStorage.shared.cookies(for: baseURL) ?? [])
+            }
             if auth.isLoggedIn {
                 await fetchModels()
                 await autoEnterChat()
@@ -93,6 +102,9 @@ final class AppState {
         do {
             let client = try requireAPIClient()
             try await client.login(password: password)
+            if let baseURL = connection.baseURL {
+                credentialStore.saveCookies(HTTPCookieStorage.shared.cookies(for: baseURL) ?? [])
+            }
             auth.isLoggedIn = true
             await fetchModels()
             await autoEnterChat()
@@ -243,6 +255,7 @@ final class AppState {
             let now = Date().timeIntervalSince1970
             chat.messages.append(MessageDTO(role: "user", content: .text(message), timestamp: now, attachments: attachments))
             chat.messages.append(MessageDTO(role: "assistant", content: .text(""), timestamp: now))
+            chat.isAwaitingAssistantStart = true
             chat.draft = ""
             chat.stagedAttachments = []
 
@@ -423,6 +436,7 @@ final class AppState {
         logStreamDebug("attachStream streamID=\(streamID) sessionID=\(sessionID)")
         chat.activeStreamID = streamID
         chat.isStreaming = true
+        didReceiveDoneForActiveStream = false
         upsertSessionSummary(sessionID: sessionID, title: chat.sessionTitle, activeStreamID: streamID)
 
         let stream = requireAPIClientOrNil()?.streamChat(streamID: streamID)
@@ -446,13 +460,9 @@ final class AppState {
 
         switch event {
         case .token(let token):
-            logStreamDebug("SSE token streamID=\(streamID) chars=\(token.count)")
-            if let lastIndex = chat.messages.lastIndex(where: { $0.role == "assistant" }) {
-                let current = chat.messages[lastIndex].displayText
-                chat.messages[lastIndex] = MessageDTO(role: "assistant", content: .text(current + token), timestamp: Date().timeIntervalSince1970)
-            } else {
-                chat.messages.append(MessageDTO(role: "assistant", content: .text(token), timestamp: Date().timeIntervalSince1970))
-            }
+            logStreamDebug("SSE token streamID=\(streamID) chars=\(token.count) text=\(token)")
+            chat.isAwaitingAssistantStart = false
+            appendAssistantVisibleText(token)
         case .title(let payload):
             if !payload.title.isEmpty {
                 chat.sessionTitle = payload.title
@@ -460,16 +470,21 @@ final class AppState {
             }
         case .done(let payload):
             logStreamDebug("SSE done streamID=\(streamID) messages=\(payload.session.messages.count)")
+            didReceiveDoneForActiveStream = true
+            chat.isAwaitingAssistantStart = false
             resetPromptState()
             applySession(payload.session)
         case .appError(let payload):
             logStreamError("SSE apperror streamID=\(streamID) label=\(payload.label ?? "") message=\(payload.message ?? "")")
+            chat.isAwaitingAssistantStart = false
             chat.lastError = [payload.label, payload.message, payload.hint].compactMap { $0 }.joined(separator: " — ")
         case .cancel:
             logStreamDebug("SSE cancel streamID=\(streamID)")
+            chat.isAwaitingAssistantStart = false
             chat.isStreaming = false
         case .streamEnd:
             logStreamDebug("SSE stream_end streamID=\(streamID)")
+            chat.isAwaitingAssistantStart = false
             chat.isStreaming = false
         case .approval(let payload):
             chat.pendingApproval = payload
@@ -494,6 +509,11 @@ final class AppState {
         stopLocalStream(cancelTask: false)
         resetPromptState()
         upsertSessionSummary(sessionID: sessionID, title: chat.sessionTitle, activeStreamID: nil)
+        if didReceiveDoneForActiveStream {
+            didReceiveDoneForActiveStream = false
+            await refreshSessions()
+            return
+        }
         do {
             let client = try requireAPIClient()
             let payload = try await client.fetchSession(sessionID: sessionID, includeMessages: true, limit: nil)
@@ -563,6 +583,7 @@ final class AppState {
         chat.messages = session.messages
         chat.activeStreamID = session.activeStreamId
         chat.isStreaming = session.activeStreamId != nil
+        chat.isAwaitingAssistantStart = false
         chat.isLoading = false
         upsertSessionSummary(from: session)
     }
@@ -631,6 +652,17 @@ final class AppState {
         chat.clarifyResponseDraft = ""
     }
 
+    private func appendAssistantVisibleText(_ text: String) {
+        guard !text.isEmpty else { return }
+        if let lastIndex = chat.messages.lastIndex(where: { $0.role == "assistant" }) {
+            let existing = chat.messages[lastIndex]
+            let current = existing.displayText
+            chat.messages[lastIndex] = MessageDTO(id: existing.id, role: "assistant", content: .text(current + text), timestamp: Date().timeIntervalSince1970, attachments: existing.attachments)
+        } else {
+            chat.messages.append(MessageDTO(role: "assistant", content: .text(text), timestamp: Date().timeIntervalSince1970))
+        }
+    }
+
     private func stopLocalStream(cancelTask: Bool = true) {
         if cancelTask {
             streamTask?.cancel()
@@ -638,6 +670,7 @@ final class AppState {
         streamTask = nil
         chat.activeStreamID = nil
         chat.isStreaming = false
+        chat.isAwaitingAssistantStart = false
     }
 
     private func requireAPIClient() throws -> HermesAPIClientProtocol {

@@ -16,6 +16,8 @@ final class HermesHTTPSession: @unchecked Sendable {
         streamConfiguration.httpCookieStorage = cookieStorage
         streamConfiguration.httpShouldSetCookies = true
         streamConfiguration.waitsForConnectivity = true
+        streamConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        streamConfiguration.urlCache = nil
         streamConfiguration.timeoutIntervalForRequest = 300
         streamConfiguration.timeoutIntervalForResource = 600
 

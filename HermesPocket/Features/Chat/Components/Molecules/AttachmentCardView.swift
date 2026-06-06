@@ -1,4 +1,6 @@
 import SwiftUI
+import QuickLookThumbnailing
+import UniformTypeIdentifiers
 
 struct AttachmentCardView: View {
     enum Style {
@@ -85,11 +87,18 @@ private struct AttachmentPreview: View {
         let cornerRadius: CGFloat = 8
 
         Group {
-            if attachment.mime.hasPrefix("image/"),
-               let image = UIImage(contentsOfFile: attachment.path) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
+            if attachmentIsImage(attachment) {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.black.opacity(0.10))
+                    .overlay {
+                        if let image = UIImage(contentsOfFile: attachment.path) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            FileThumbnailView(url: URL(fileURLWithPath: attachment.path))
+                        }
+                    }
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(attachmentFileFormatGradient(for: attachment, palette: palette))
@@ -108,6 +117,54 @@ private struct AttachmentPreview: View {
 enum AttachmentGradientPalette {
     case muted
     case vibrant
+}
+
+private struct FileThumbnailView: UIViewRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    @MainActor
+    func makeUIView(context: Context) -> UIImageView {
+        let imageView = UIImageView()
+        imageView.contentMode = .scaleAspectFill
+        imageView.clipsToBounds = true
+        imageView.backgroundColor = .clear
+        context.coordinator.loadThumbnail(into: imageView)
+        return imageView
+    }
+
+    @MainActor
+    func updateUIView(_ uiView: UIImageView, context: Context) {
+        context.coordinator.loadThumbnail(into: uiView)
+    }
+
+    final class Coordinator {
+        let url: URL
+
+        init(url: URL) {
+            self.url = url
+        }
+
+        @MainActor
+        func loadThumbnail(into imageView: UIImageView) {
+            let request = QLThumbnailGenerator.Request(
+                fileAt: url,
+                size: CGSize(width: 120, height: 120),
+                scale: imageView.traitCollection.displayScale,
+                representationTypes: .thumbnail
+            )
+
+            QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { representation, _ in
+                guard let image = representation?.uiImage else { return }
+                DispatchQueue.main.async {
+                    imageView.image = image
+                }
+            }
+        }
+    }
 }
 
 private enum AttachmentFileFormatKind {
@@ -184,6 +241,17 @@ private func attachmentFileFormatIconColor(for attachment: AttachmentDTO) -> Col
     case .other:
         return .white
     }
+}
+
+private func attachmentIsImage(_ attachment: AttachmentDTO) -> Bool {
+    let ext = URL(fileURLWithPath: attachment.name).pathExtension.lowercased()
+    if let type = UTType(filenameExtension: ext), type.conforms(to: .image) {
+        return true
+    }
+    if let type = UTType(mimeType: attachment.mime), type.conforms(to: .image) {
+        return true
+    }
+    return false
 }
 
 private func attachmentFileFormatKind(for attachment: AttachmentDTO) -> AttachmentFileFormatKind {

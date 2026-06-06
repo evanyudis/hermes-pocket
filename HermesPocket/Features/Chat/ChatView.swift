@@ -15,6 +15,7 @@ struct ChatView: View {
     @State private var showFileImporter = false
     @State private var showPhotoPicker = false
     @State private var photoPickerItem: PhotosPickerItem?
+    @State private var composerHeight: CGFloat = 74
     @FocusState private var isComposerFocused: Bool
 
     // ── Emil's custom ease-out curve ──
@@ -76,6 +77,9 @@ struct ChatView: View {
                                 isStreaming: appState.chat.isStreaming
                                     && index == appState.chat.messages.indices.last
                                     && message.role == "assistant",
+                                isAwaitingStart: appState.chat.isAwaitingAssistantStart
+                                    && index == appState.chat.messages.indices.last
+                                    && message.role == "assistant",
                                 previousRole: index > 0 ? appState.chat.messages[index - 1].role : nil
                             )
                             .id(message.id)
@@ -84,17 +88,34 @@ struct ChatView: View {
                         }
                         .listStyle(.plain)
                         .scrollContentBackground(.hidden)
-                        .onChange(of: appState.chat.messages.count) { _, _ in
-                            if let last = appState.chat.messages.last {
-                                withAnimation {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
-                                }
+                        .scrollDismissesKeyboard(.interactively)
+                        .simultaneousGesture(
+                            TapGesture().onEnded {
+                                dismissKeyboard()
+                                isComposerFocused = false
+                            }
+                        )
+                        .onAppear {
+                            scrollToBottom(proxy: proxy, animated: false)
+                        }
+                        .onChange(of: appState.currentSessionID) { _, _ in
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(80))
+                                scrollToBottom(proxy: proxy, animated: false)
                             }
                         }
-                        .onChange(of: appState.chat.messages.last?.displayText ?? "") { _, _ in
-                            if let last = appState.chat.messages.last {
-                                proxy.scrollTo(last.id, anchor: .bottom)
+                        .onChange(of: appState.chat.isLoading) { _, isLoading in
+                            guard !isLoading else { return }
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(40))
+                                scrollToBottom(proxy: proxy, animated: false)
                             }
+                        }
+                        .onChange(of: appState.chat.messages.count) { _, _ in
+                            scrollToBottom(proxy: proxy, animated: true)
+                        }
+                        .onChange(of: appState.chat.messages.last?.displayText ?? "") { _, _ in
+                            scrollToBottom(proxy: proxy, animated: false)
                         }
                     }
                 }
@@ -112,7 +133,13 @@ struct ChatView: View {
                 }
 
                 }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    dismissKeyboard()
+                    isComposerFocused = false
+                }
                 .safeAreaPadding(.top, 72)
+                .safeAreaPadding(.bottom, composerHeight + 24)
                 .offset(x: contentOffset)
                 .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
 
@@ -209,7 +236,19 @@ struct ChatView: View {
     }
 
     private func dismissKeyboard() {
+        NotificationCenter.default.post(name: .chatDismissTextSelection, object: nil)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        guard let last = appState.chat.messages.last else { return }
+        if animated {
+            withAnimation {
+                proxy.scrollTo(last.id, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(last.id, anchor: .bottom)
+        }
     }
 
     private func focusComposerSoon() {
@@ -274,6 +313,9 @@ struct ChatView: View {
             onFetchModels: {
                 await appState.fetchModels()
             },
+            onHeightChange: { height in
+                composerHeight = height
+            },
             focus: $isComposerFocused
         )
         .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
@@ -303,7 +345,9 @@ struct ChatView: View {
             defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
             let type = UTType(filenameExtension: url.pathExtension)
             let mime = type?.preferredMIMEType ?? "application/octet-stream"
-            appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+            withAnimation(easeOut) {
+                appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+            }
         }
     }
 
@@ -312,7 +356,9 @@ struct ChatView: View {
         if let data = image.jpegData(compressionQuality: 0.86) {
             try? data.write(to: url)
         }
-        appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: "image/jpeg"))
+        withAnimation(easeOut) {
+            appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: "image/jpeg"))
+        }
     }
 
     private func appendPhotoAttachment(_ item: PhotosPickerItem, to appState: AppState) async {
@@ -322,8 +368,12 @@ struct ChatView: View {
         let mime = contentType?.preferredMIMEType ?? "image/jpeg"
         let url = FileManager.default.temporaryDirectory.appending(path: "hermes-library-\(UUID().uuidString).\(ext)")
         try? data.write(to: url)
-        appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
-        photoPickerItem = nil
+        await MainActor.run {
+            withAnimation(easeOut) {
+                appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+            }
+            photoPickerItem = nil
+        }
     }
 
     private var renameSheet: some View {
