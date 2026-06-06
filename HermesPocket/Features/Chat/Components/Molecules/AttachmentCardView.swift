@@ -96,7 +96,7 @@ private struct AttachmentPreview: View {
                     .overlay(
                         Image(systemName: attachmentFileFormatIcon(for: attachment))
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.92))
+                            .foregroundStyle(attachmentFileFormatIconColor(for: attachment))
                     )
             }
         }
@@ -168,6 +168,21 @@ private func attachmentFileFormatGradient(for attachment: AttachmentDTO, palette
         case .other:
             return LinearGradient(colors: [Color(hex: "ADB5BD"), Color(hex: "495057")], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
+    }
+}
+
+private func attachmentFileFormatIconColor(for attachment: AttachmentDTO) -> Color {
+    switch attachmentFileFormatKind(for: attachment) {
+    case .pdf:
+        return Color(hex: "E93835")
+    case .text:
+        return Color(hex: "16B8F3")
+    case .sheet:
+        return Color(hex: "59C55E")
+    case .archive:
+        return Color(hex: "F1CB41")
+    case .other:
+        return .white
     }
 }
 
