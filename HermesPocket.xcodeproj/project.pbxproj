@@ -12,11 +12,14 @@
 		10BE5BF15CDF02A9D7A52CEB /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F074E8A1D002E5C0839A6F /* SessionRowView.swift */; };
 		145ED82868835D9195EDE24B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF9C8E1CA43E3B063465AD /* SessionStore.swift */; };
 		183349FF3C23EC6EC34C3512 /* ClarifyCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248AA9032222211E432C2B0B /* ClarifyCardView.swift */; };
+		19534E8EC07E6D5AE6CDCFB5 /* markdown-it.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 090393EDC2B7F632DD5EA81D /* markdown-it.min.js */; };
 		219DCB8FFFB61B3407C51999 /* StreamingCursorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6211D3ECF35942CC7F9C9AF5 /* StreamingCursorView.swift */; };
+		28ED5D92C616DA0F43FD07C1 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 7BF1D3CAE168895B7FC7BF7E /* mermaid.min.js */; };
 		32AA3C862EFF84627EE3B8CF /* HermesPocketApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 531A171E02357CAAC328E2B2 /* HermesPocketApp.swift */; };
 		368FDC10D80B33A145968628 /* HermesSSEParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636B1EB37CBA526E5732D3D8 /* HermesSSEParser.swift */; };
 		408B3B54178A391AF38DF8E6 /* ConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F502CBBA7357A3A51F31869 /* ConnectionStore.swift */; };
 		42085FC9564F60D47C7EA242 /* GlassCircleButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05ECA5BDC135AF31EC604E9C /* GlassCircleButton.swift */; };
+		5038218EA7F2BF283B234379 /* katex.min.js in Resources */ = {isa = PBXBuildFile; fileRef = E91B0CA0876D836DD2E21187 /* katex.min.js */; };
 		5797847A5B746976BF06992E /* HermesError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C038EDD2EF29F8C521B3C8D8 /* HermesError.swift */; };
 		719294FEB647CBD76CB66904 /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6C469A4AAEB3291B112D7D /* ChatStore.swift */; };
 		7A0EE5CC09450139D784F395 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B744185124BD9FD3FBD289BD /* ChatView.swift */; };
@@ -24,12 +27,14 @@
 		8243CAE2959BD274AD0EE09A /* ChatMarkdownView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E420488DDFC818EE74A9A6E /* ChatMarkdownView.swift */; };
 		878C4985139A10DFA43F9922 /* LiquidGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE4F21D13C32897093C8746 /* LiquidGlass.swift */; };
 		88920F676F9BC84D76B1690E /* HermesHTTPSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4D052F07A4859D21946B69 /* HermesHTTPSession.swift */; };
+		8A59D7C4A1B43C0446678AC4 /* katex.min.css in Resources */ = {isa = PBXBuildFile; fileRef = 188D5414EA1649FFF4AD98E1 /* katex.min.css */; };
 		914C03CCD588CC634D75DF66 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68F3E141FC44EF9095B0D45 /* SettingsView.swift */; };
 		9547BE9DB8F7216B52B0B0CC /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C542B56F32DADD13FBF6521 /* AuthStore.swift */; };
 		970489A71A2828948F64F67B /* AuthStatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2018976B5E6911702F6CB59B /* AuthStatusDTO.swift */; };
 		974B1C96EAA9B80DFDA9FF05 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6ED26086FFACF255D611AD /* LoginView.swift */; };
 		97A5ACEF23CE8A9C8D7667DA /* HermesRequestFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 614143EAF3CE5A1883160BD8 /* HermesRequestFactory.swift */; };
 		9B52F9E0F8623F19DDA713D3 /* ModelsListDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222210A5E0B24D676382E69F /* ModelsListDTO.swift */; };
+		A23A499C238F784EC8358CCC /* katex-auto-render.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 464A2999F73D53E02B5F7A00 /* katex-auto-render.min.js */; };
 		A8B29B9AA2E0624A418041DB /* HermesStreamEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41EABA9372B684252771D0FB /* HermesStreamEvent.swift */; };
 		AF9936EC15A7C2A4C1F89DD8 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39D59FC18BBF2C224C06E956 /* SessionListView.swift */; };
 		BA975DF6A4560834FD7F055B /* ChatStartDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE7F5EAB7F2B3E712DDFB13 /* ChatStartDTO.swift */; };
@@ -39,6 +44,8 @@
 		D321B39761AD5E90BD7495D8 /* SessionDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F6ADD3497C6DBF4378556E /* SessionDTO.swift */; };
 		D45FB6EA9311F891F55E70D8 /* ChatSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 350551595DA0349CFECECB86 /* ChatSidebarView.swift */; };
 		D604AEAC0A812D54531CB2FA /* ChatComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11ACC55BC665C2441633D0A8 /* ChatComposerView.swift */; };
+		E6934307ADFBAE5DBCE55192 /* highlight-github-dark.min.css in Resources */ = {isa = PBXBuildFile; fileRef = F43DD2E377D9FE908377D627 /* highlight-github-dark.min.css */; };
+		EA2C671C4359C0D8DCCB48DC /* highlight-common.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C1368A9C2621F550067324F /* highlight-common.min.js */; };
 		F37520AFA305A4811922BF72 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2FE1B29AED0713EC8B4974 /* ConnectionSetupView.swift */; };
 		FADB04D67B8590EDF54E8E64 /* AttachmentCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383924EC54E39BBFA4E6B607 /* AttachmentCardView.swift */; };
 		FE2089D994CF449F8677439D /* StreamingDotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5187F3879E6DEE021A7924ED /* StreamingDotsView.swift */; };
@@ -48,9 +55,11 @@
 /* Begin PBXFileReference section */
 		04CE38409DBCBDD9BA82506B /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		05ECA5BDC135AF31EC604E9C /* GlassCircleButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCircleButton.swift; sourceTree = "<group>"; };
+		090393EDC2B7F632DD5EA81D /* markdown-it.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "markdown-it.min.js"; sourceTree = "<group>"; };
 		0BE4F21D13C32897093C8746 /* LiquidGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlass.swift; sourceTree = "<group>"; };
 		11ACC55BC665C2441633D0A8 /* ChatComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposerView.swift; sourceTree = "<group>"; };
 		14559E8E007DDB20FAE1F5E6 /* MessageRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageRowView.swift; sourceTree = "<group>"; };
+		188D5414EA1649FFF4AD98E1 /* katex.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = katex.min.css; sourceTree = "<group>"; };
 		1CDE9AD022289C31BFCD051F /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		2018976B5E6911702F6CB59B /* AuthStatusDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStatusDTO.swift; sourceTree = "<group>"; };
 		222210A5E0B24D676382E69F /* ModelsListDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsListDTO.swift; sourceTree = "<group>"; };
@@ -64,6 +73,7 @@
 		3A6ED26086FFACF255D611AD /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		3E420488DDFC818EE74A9A6E /* ChatMarkdownView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMarkdownView.swift; sourceTree = "<group>"; };
 		41EABA9372B684252771D0FB /* HermesStreamEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesStreamEvent.swift; sourceTree = "<group>"; };
+		464A2999F73D53E02B5F7A00 /* katex-auto-render.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "katex-auto-render.min.js"; sourceTree = "<group>"; };
 		4F502CBBA7357A3A51F31869 /* ConnectionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStore.swift; sourceTree = "<group>"; };
 		4FE7F5EAB7F2B3E712DDFB13 /* ChatStartDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStartDTO.swift; sourceTree = "<group>"; };
 		50007A056F4AC9B045D2CA36 /* ApprovalCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApprovalCardView.swift; sourceTree = "<group>"; };
@@ -74,14 +84,18 @@
 		6211D3ECF35942CC7F9C9AF5 /* StreamingCursorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingCursorView.swift; sourceTree = "<group>"; };
 		636B1EB37CBA526E5732D3D8 /* HermesSSEParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSSEParser.swift; sourceTree = "<group>"; };
 		6B6C469A4AAEB3291B112D7D /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
+		7BF1D3CAE168895B7FC7BF7E /* mermaid.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = mermaid.min.js; sourceTree = "<group>"; };
 		817CEC905C1FAFD7BAB2B713 /* HermesAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesAPIClient.swift; sourceTree = "<group>"; };
 		9B2FE1B29AED0713EC8B4974 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
+		9C1368A9C2621F550067324F /* highlight-common.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "highlight-common.min.js"; sourceTree = "<group>"; };
 		B08D229A9887818DB899F22B /* HermesPocket.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HermesPocket.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CF9C8E1CA43E3B063465AD /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		B744185124BD9FD3FBD289BD /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		C038EDD2EF29F8C521B3C8D8 /* HermesError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesError.swift; sourceTree = "<group>"; };
 		C3A03C1A15C8E3AC29464C2F /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
 		E6F074E8A1D002E5C0839A6F /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
+		E91B0CA0876D836DD2E21187 /* katex.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = katex.min.js; sourceTree = "<group>"; };
+		F43DD2E377D9FE908377D627 /* highlight-github-dark.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "highlight-github-dark.min.css"; sourceTree = "<group>"; };
 		F68F3E141FC44EF9095B0D45 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -100,6 +114,14 @@
 				F68F3E141FC44EF9095B0D45 /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		180F6A3C62ED64A31A7121A2 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F622A471BD16904D5D9993E5 /* Web */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		25BD7D7D7CC75292278D8692 /* Chat */ = {
@@ -176,6 +198,7 @@
 				75B39CA9E89EA041F03A8FD9 /* App */,
 				5806A6FE609E2E6892237092 /* Core */,
 				E94BA025AE68E643D5BA1B26 /* Features */,
+				180F6A3C62ED64A31A7121A2 /* Resources */,
 			);
 			path = HermesPocket;
 			sourceTree = "<group>";
@@ -288,6 +311,20 @@
 			path = Persistence;
 			sourceTree = "<group>";
 		};
+		F622A471BD16904D5D9993E5 /* Web */ = {
+			isa = PBXGroup;
+			children = (
+				9C1368A9C2621F550067324F /* highlight-common.min.js */,
+				F43DD2E377D9FE908377D627 /* highlight-github-dark.min.css */,
+				464A2999F73D53E02B5F7A00 /* katex-auto-render.min.js */,
+				188D5414EA1649FFF4AD98E1 /* katex.min.css */,
+				E91B0CA0876D836DD2E21187 /* katex.min.js */,
+				090393EDC2B7F632DD5EA81D /* markdown-it.min.js */,
+				7BF1D3CAE168895B7FC7BF7E /* mermaid.min.js */,
+			);
+			path = Web;
+			sourceTree = "<group>";
+		};
 		FD645CB6AB62B75594066A6D /* Molecules */ = {
 			isa = PBXGroup;
 			children = (
@@ -305,6 +342,7 @@
 			buildConfigurationList = 14A831C079ABC126241A2F2F /* Build configuration list for PBXNativeTarget "HermesPocket" */;
 			buildPhases = (
 				2F26910FD5AB0701CD2C21EC /* Sources */,
+				ECF6523A4FBBD1825258E051 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -350,6 +388,23 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ECF6523A4FBBD1825258E051 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA2C671C4359C0D8DCCB48DC /* highlight-common.min.js in Resources */,
+				E6934307ADFBAE5DBCE55192 /* highlight-github-dark.min.css in Resources */,
+				A23A499C238F784EC8358CCC /* katex-auto-render.min.js in Resources */,
+				8A59D7C4A1B43C0446678AC4 /* katex.min.css in Resources */,
+				5038218EA7F2BF283B234379 /* katex.min.js in Resources */,
+				19534E8EC07E6D5AE6CDCFB5 /* markdown-it.min.js in Resources */,
+				28ED5D92C616DA0F43FD07C1 /* mermaid.min.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2F26910FD5AB0701CD2C21EC /* Sources */ = {
