@@ -240,14 +240,46 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
           max-width: 100%;
           height: auto;
         }
+        .task-list-item {
+          list-style: none;
+          margin-left: -1.4em;
+        }
+        .task-list-item input[type=checkbox] {
+          appearance: none;
+          -webkit-appearance: none;
+          width: 18px;
+          height: 18px;
+          border: 1.5px solid var(--border);
+          border-radius: 5px;
+          background: transparent;
+          margin-right: 8px;
+          vertical-align: middle;
+          position: relative;
+          top: -1px;
+        }
+        .task-list-item input[type=checkbox]:checked {
+          background: var(--success);
+          border-color: var(--success);
+        }
+        .task-list-item input[type=checkbox]:checked::after {
+          content: '✓';
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          line-height: 1;
+        }
       </style>
     </head>
     <body>
       <div id=\"content\"></div>
       <script src=\"markdown-it.min.js\"></script>
       <script src=\"highlight-common.min.js\"></script>
-      <script defer src=\"katex.min.js\"></script>
-      <script defer src=\"katex-auto-render.min.js\"></script>
+      <script src=\"katex.min.js\"></script>
+      <script src=\"katex-auto-render.min.js\"></script>
       <script src=\"mermaid.min.js\"></script>
       <script>
         const md = window.markdownit({
@@ -260,10 +292,10 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
             if (lang && window.hljs && hljs.getLanguage(lang)) {
               try {
                 const highlighted = hljs.highlight(str, { language: lang, ignoreIllegals: true }).value;
-                return `<pre><code class=\"hljs language-${lang}\">${highlighted}</code></pre>`;
+                return `<span class=\"hljs\">${highlighted}</span>`;
               } catch (_) {}
             }
-            return `<pre><code class=\"hljs\">${escaped}</code></pre>`;
+            return escaped;
           }
         });
 
@@ -319,21 +351,37 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
           return shell;
         }
 
+        function upgradeCheckboxes() {
+          const items = Array.from(document.querySelectorAll('#content li'));
+          for (const li of items) {
+            const text = li.innerHTML;
+            const unchecked = text.match(/^\\[ \\]/);
+            const checked = text.match(/^\\[x\\]/i);
+            if (unchecked || checked) {
+              li.classList.add('task-list-item');
+              const isChecked = !!checked;
+              li.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} disabled>${text.slice(3).trimStart()}`;
+            }
+          }
+        }
+
         function upgradeCodeBlocks() {
-          const blocks = Array.from(document.querySelectorAll('pre > code'));
+          const blocks = Array.from(document.querySelectorAll('#content pre code'));
           for (const code of blocks) {
             if (code.classList.contains('language-mermaid') || code.classList.contains('language-math')) {
               continue;
             }
             const pre = code.parentElement;
+            if (!pre || pre.tagName !== 'PRE') continue;
             const langClass = Array.from(code.classList).find(name => name.startsWith('language-'));
             const lang = langClass ? langClass.replace('language-', '') : 'code';
-            pre.replaceWith(makeBlockShell(lang, code.textContent || '', pre));
+            const copyContent = code.textContent || '';
+            pre.replaceWith(makeBlockShell(lang, copyContent, pre));
           }
         }
 
         function upgradeMathBlocks() {
-          const blocks = Array.from(document.querySelectorAll('pre > code.language-math'));
+          const blocks = Array.from(document.querySelectorAll('#content pre code.language-math'));
           for (const code of blocks) {
             const pre = code.parentElement;
             const wrapper = document.createElement('div');
@@ -346,7 +394,7 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
         }
 
         async function upgradeMermaidBlocks() {
-          const blocks = Array.from(document.querySelectorAll('pre > code.language-mermaid'));
+          const blocks = Array.from(document.querySelectorAll('#content pre code.language-mermaid'));
           for (const code of blocks) {
             const pre = code.parentElement;
             const source = code.textContent || '';
@@ -368,6 +416,7 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
           const markdown = decodeBase64Unicode(base64);
           const content = document.getElementById('content');
           content.innerHTML = md.render(markdown);
+          upgradeCheckboxes();
           upgradeCodeBlocks();
           if (window.renderMathInElement) {
             renderMathInElement(content, {
