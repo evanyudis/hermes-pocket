@@ -3,14 +3,9 @@ import MarkdownUI
 import LaTeXSwiftUI
 import WebKit
 
-// MARK: - Design tokens (match existing chat UI)
+// MARK: - Design tokens
 
 private enum D {
-    static let fontSize: CGFloat = 18
-    static let lineSpacing: CGFloat = 6
-    static let tracking: CGFloat = -0.2
-    static let lineHeightEm: CGFloat = lineSpacing / fontSize  // 0.333em
-
     static let textPrimary = Color.white
     static let textSecondary = Color.white.opacity(0.55)
     static let surface = Color.white.opacity(0.06)
@@ -26,12 +21,10 @@ struct ChatMarkdownView: View {
     let markdown: String
     let isStreaming: Bool
 
-    private var normalized: String { normalizeMarkdown(markdown) }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                switch segment {
+            ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
+                switch seg {
                 case .markdown(let text):
                     Markdown(text)
                         .markdownTheme(.hermes)
@@ -44,7 +37,7 @@ struct ChatMarkdownView: View {
                     LaTeX(text)
                         .blockMode(.blockViews)
                         .errorMode(.original)
-                        .font(.system(size: D.fontSize))
+                        .font(.system(size: 18))
                         .foregroundStyle(D.textPrimary)
                         .textSelection(.enabled)
                         .padding(.vertical, 8)
@@ -56,34 +49,7 @@ struct ChatMarkdownView: View {
         }
     }
 
-    // MARK: - Markdown normalization (ensure blank lines around blocks)
-
-    private func normalizeMarkdown(_ src: String) -> String {
-        var t = src.replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-
-        // Ensure blank line before block-level starts
-        let patterns = [
-            "(?m)(\\S)(#{1,6}\\s)",
-            "(?m)(\\S)(\\n>\\s)",
-            "(?m)(\\S)(\\n\\d+\\.\\s)",
-            "(?m)(\\S)(\\n[-*+]\\s)",
-            "(?m)(\\S)(\\n\\[[ xX]\\]\\s)",
-            "(?m)(\\S)(\\n```)",
-            "(?m)(\\S)(\\n~~~)",
-            "(?m)(\\S)(\\n\\$\\$)",
-            "(?m)(\\S)((?:[-*_]\\s*){3,}$)",
-        ]
-        for p in patterns {
-            if let r = try? NSRegularExpression(pattern: p) {
-                let range = NSRange(location: 0, length: (t as NSString).length)
-                t = r.stringByReplacingMatches(in: t, options: [], range: range, withTemplate: "$1\n\n$2")
-            }
-        }
-        return t
-    }
-
-    // MARK: - Segment Parser
+    // ── Segment Parser ──
 
     private enum Segment {
         case markdown(String)
@@ -92,31 +58,30 @@ struct ChatMarkdownView: View {
     }
 
     private var segments: [Segment] {
-        var result: [Segment] = []
-        let lines = normalized.components(separatedBy: "\n")
+        var out: [Segment] = []
+        let lines = markdown.components(separatedBy: "\n")
         var buf: [String] = []
         var i = 0
 
         func flush() {
             let t = buf.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
             buf.removeAll(keepingCapacity: true)
-            if !t.isEmpty { result.append(.markdown(t)) }
+            if !t.isEmpty { out.append(.markdown(t)) }
         }
 
         while i < lines.count {
             let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
 
-            // Mermaid fenced block (```mermaid or ~~~mermaid)
+            // Mermaid fenced block
             if let fence = mermaidFence(trimmed) {
                 flush()
-                var blockLines: [String] = []
+                var body: [String] = []
                 i += 1
                 while i < lines.count, !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix(fence) {
-                    blockLines.append(lines[i])
-                    i += 1
+                    body.append(lines[i]); i += 1
                 }
-                let block = blockLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-                if !block.isEmpty { result.append(.mermaid(block)) }
+                let b = body.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                if !b.isEmpty { out.append(.mermaid(b)) }
                 if i < lines.count { i += 1 }
                 continue
             }
@@ -125,44 +90,37 @@ struct ChatMarkdownView: View {
             if trimmed.hasPrefix("$$") && !trimmed.hasPrefix("$$$") {
                 flush()
                 let after = String(trimmed.dropFirst(2))
-                if let close = after.range(of: "$$") {
-                    let math = after[after.startIndex..<close.lowerBound]
-                        .trimmingCharacters(in: .whitespaces)
-                    if !math.isEmpty { result.append(.math(String(math))) }
+                if let c = after.range(of: "$$") {
+                    let m = after[after.startIndex..<c.lowerBound].trimmingCharacters(in: .whitespaces)
+                    if !m.isEmpty { out.append(.math(String(m))) }
                     i += 1
                     continue
                 }
-                // Multi-line
-                var mathLines: [String] = []
+                var math: [String] = []
                 i += 1
                 while i < lines.count {
                     let t = lines[i].trimmingCharacters(in: .whitespaces)
                     if let r = t.range(of: "$$") {
-                        mathLines.append(String(t[t.startIndex..<r.lowerBound]))
-                        i += 1
-                        break
+                        math.append(String(t[t.startIndex..<r.lowerBound])); i += 1; break
                     }
-                    mathLines.append(lines[i])
-                    i += 1
+                    math.append(lines[i]); i += 1
                 }
-                let math = mathLines.joined(separator: "\n").trimmingCharacters(in: .whitespaces)
-                if !math.isEmpty { result.append(.math(math)) }
+                let m = math.joined(separator: "\n").trimmingCharacters(in: .whitespaces)
+                if !m.isEmpty { out.append(.math(m)) }
                 continue
             }
 
-            buf.append(lines[i])
-            i += 1
+            buf.append(lines[i]); i += 1
         }
         flush()
-        return result
+        return out
     }
 
-    private func mermaidFence(_ trimmed: String) -> String? {
-        for f in ["```", "~~~"] where trimmed.hasPrefix(f) {
-            let lang = trimmed.dropFirst(f.count)
-                .trimmingCharacters(in: .whitespaces)
-                .lowercased()
-            if lang == "mermaid" { return f }
+    private func mermaidFence(_ t: String) -> String? {
+        for f in ["```", "~~~"] where t.hasPrefix(f) {
+            if t.dropFirst(f.count).trimmingCharacters(in: .whitespaces).lowercased() == "mermaid" {
+                return f
+            }
         }
         return nil
     }
@@ -175,8 +133,7 @@ private struct HermesCodeBlockView: View {
     @State private var didCopy = false
 
     private var title: String {
-        let lang = configuration.language?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (lang?.isEmpty == false ? lang! : "code").uppercased()
+        (configuration.language?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty).map { $0.uppercased() } ?? "CODE"
     }
 
     var body: some View {
@@ -190,10 +147,8 @@ private struct HermesCodeBlockView: View {
                 Button {
                     UIPasteboard.general.string = configuration.content
                     withAnimation(.easeInOut(duration: 0.16)) { didCopy = true }
-                    Task {
-                        try? await Task.sleep(for: .seconds(1.2))
-                        withAnimation(.easeInOut(duration: 0.16)) { didCopy = false }
-                    }
+                    Task { try? await Task.sleep(for: .seconds(1.2))
+                        withAnimation(.easeInOut(duration: 0.16)) { didCopy = false } }
                 } label: {
                     ZStack {
                         Image(systemName: "doc.on.doc").opacity(didCopy ? 0 : 1)
@@ -205,8 +160,7 @@ private struct HermesCodeBlockView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12).padding(.vertical, 8)
             .background(D.surface.opacity(0.8))
 
             Text(configuration.content.isEmpty ? " " : configuration.content)
@@ -219,11 +173,12 @@ private struct HermesCodeBlockView: View {
         }
         .background(D.surface.opacity(0.35))
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(D.border.opacity(0.65), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(D.border.opacity(0.65), lineWidth: 1))
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 // MARK: - Mermaid
@@ -237,10 +192,7 @@ private struct MermaidDiagramView: View {
             .frame(minHeight: 120, idealHeight: height, maxHeight: max(height, 200))
             .background(D.surface.opacity(0.35))
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(D.border.opacity(0.65), lineWidth: 1)
-            )
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(D.border.opacity(0.65), lineWidth: 1))
     }
 }
 
@@ -251,18 +203,16 @@ private struct MermaidWebView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(height: $height) }
 
     func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(context.coordinator, name: "resize")
-        let view = WKWebView(frame: .zero, configuration: config)
-        view.isOpaque = false; view.backgroundColor = .clear
-        view.scrollView.backgroundColor = .clear
-        view.scrollView.isScrollEnabled = false
-        view.scrollView.bounces = false
-        view.scrollView.showsVerticalScrollIndicator = false
-        view.scrollView.showsHorizontalScrollIndicator = false
-        context.coordinator.webView = view
-        view.loadHTMLString(mermaidHTML(source), baseURL: URL(string: "https://cdn.jsdelivr.net"))
-        return view
+        let c = WKWebViewConfiguration()
+        c.userContentController.add(context.coordinator, name: "resize")
+        let v = WKWebView(frame: .zero, configuration: c)
+        v.isOpaque = false; v.backgroundColor = .clear
+        v.scrollView.backgroundColor = .clear
+        v.scrollView.isScrollEnabled = false
+        v.scrollView.bounces = false
+        context.coordinator.webView = v
+        v.loadHTMLString(mermaidHTML(source), baseURL: URL(string: "https://cdn.jsdelivr.net"))
+        return v
     }
 
     func updateUIView(_ wv: WKWebView, context: Context) {
@@ -273,31 +223,26 @@ private struct MermaidWebView: UIViewRepresentable {
     }
 
     private func mermaidHTML(_ src: String) -> String {
-        let escaped = src
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "`", with: "\\`")
+        let esc = src.replacingOccurrences(of: "\\", with: "\\\\")
+                     .replacingOccurrences(of: "`", with: "\\`")
         return """
         <!doctype html><html><head>
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-        <style>html,body{margin:0;padding:14px;background:transparent;overflow:hidden}
-        svg{max-width:100%;height:auto}</style>
+        <style>html,body{margin:0;padding:14px;background:transparent;overflow:hidden}svg{max-width:100%;height:auto}</style>
         </head><body><div id="d"></div>
         <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
         <script>
         mermaid.initialize({startOnLoad:false,theme:'dark',securityLevel:'loose'});
-        document.getElementById('d').innerHTML='<div class="mermaid">\(escaped)</div>';
+        document.getElementById('d').innerHTML='<div class="mermaid">\(esc)</div>';
         mermaid.run({querySelector:'.mermaid'}).then(function(){
-          window.webkit.messageHandlers.resize.postMessage(
-            Math.max(document.getElementById('d').scrollHeight,120));
+          window.webkit.messageHandlers.resize.postMessage(Math.max(document.getElementById('d').scrollHeight,120));
         });
         </script></body></html>
         """
     }
 
     final class Coordinator: NSObject, WKScriptMessageHandler {
-        @Binding var height: CGFloat
-        weak var webView: WKWebView?
-        var last: String?
+        @Binding var height: CGFloat; weak var webView: WKWebView?; var last: String?
         init(height: Binding<CGFloat>) { self._height = height }
         func userContentController(_: WKUserContentController, didReceive m: WKScriptMessage) {
             if m.name == "resize", let v = m.body as? Double {
@@ -307,12 +252,12 @@ private struct MermaidWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - Hermes Theme
+// MARK: - Theme
 
 extension Theme {
     @MainActor static let hermes = Theme()
         .text {
-            FontSize(D.fontSize)
+            FontSize(18)
             ForegroundColor(D.textPrimary)
             BackgroundColor(.clear)
         }
@@ -322,39 +267,36 @@ extension Theme {
             BackgroundColor(D.inlineCodeBg)
         }
         .strong { FontWeight(.semibold) }
-        .link {
-            ForegroundColor(D.accent)
-            UnderlineStyle(.single)
-        }
+        .link { ForegroundColor(D.accent); UnderlineStyle(.single) }
 
-        .heading1 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.55)) } }
-        .heading2 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.28)) } }
-        .heading3 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.12)) } }
-        .heading4 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.02)) } }
-        .heading5 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(0.94)) } }
-        .heading6 { c in c.label.markdownTextStyle { FontWeight(.medium); FontSize(.em(0.88)); ForegroundColor(D.textSecondary) } }
+        .heading1 { c in c.label.markdownMargin(top: 22, bottom: 18)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.55)) } }
+        .heading2 { c in c.label.markdownMargin(top: 18, bottom: 17)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.28)) } }
+        .heading3 { c in c.label.markdownMargin(top: 16, bottom: 16)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.12)) } }
+        .heading4 { c in c.label.markdownMargin(top: 14, bottom: 15)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.02)) } }
+        .heading5 { c in c.label.markdownMargin(top: 12, bottom: 14)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(0.94)) } }
+        .heading6 { c in c.label.markdownMargin(top: 12, bottom: 14)
+            .markdownTextStyle { FontWeight(.medium); FontSize(.em(0.88)); ForegroundColor(D.textSecondary) } }
 
-        .paragraph { c in c.label
-            .relativeLineSpacing(.em(D.lineHeightEm))
-            .markdownMargin(top: 0, bottom: 14)
-        }
+        .paragraph { c in c.label.fixedSize(horizontal: false, vertical: true)
+            .relativeLineSpacing(.em(0.33)).markdownMargin(top: 0, bottom: 14) }
 
         .blockquote { c in
             HStack(alignment: .top, spacing: 0) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(D.quoteBar).frame(width: 3).padding(.trailing, 8)
+                RoundedRectangle(cornerRadius: 2).fill(D.quoteBar).frame(width: 3).padding(.trailing, 8)
                 c.label.relativePadding(.vertical, length: .em(0.15))
                     .markdownTextStyle { BackgroundColor(.clear) }
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: 18, bottom: 20)
+            }.fixedSize(horizontal: false, vertical: true).markdownMargin(top: 10, bottom: 14)
         }
 
         .codeBlock { c in c.label.markdownMargin(top: 18, bottom: 22) }
 
-        .listItem { c in c.label
-            .markdownMargin(top: .em(0.18), bottom: .em(0.18))
-        }
+        .listItem { c in c.label.markdownMargin(top: .em(0.18), bottom: .em(0.18)) }
+
         .taskListMarker { c in
             Image(systemName: c.isCompleted ? "checkmark.square.fill" : "square")
                 .foregroundStyle(c.isCompleted ? D.accent : D.textSecondary)
@@ -364,8 +306,7 @@ extension Theme {
 
         .table { c in
             ScrollView(.horizontal, showsIndicators: false) {
-                c.label
-                    .fixedSize(horizontal: false, vertical: true)
+                c.label.fixedSize(horizontal: false, vertical: true)
                     .markdownTableBorderStyle(.init(color: D.border.opacity(0.42)))
                     .markdownTableBackgroundStyle(.alternatingRows(D.surface.opacity(0.18), D.surface.opacity(0.28)))
             }
@@ -375,8 +316,8 @@ extension Theme {
         }
         .tableCell { c in
             c.label.markdownTextStyle {
-                if c.row == 0 { FontWeight(.semibold) }
-                BackgroundColor(.clear)
+                if c.row == 0 { FontWeight(.semibold); BackgroundColor(D.surface.opacity(0.5)) }
+                else { BackgroundColor(.clear) }
             }
             .fixedSize(horizontal: false, vertical: true)
             .padding(.vertical, 10).padding(.horizontal, 14)
