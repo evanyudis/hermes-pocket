@@ -1,4 +1,7 @@
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
+import UIKit
 
 struct ChatView: View {
     @Environment(AppState.self) private var appState
@@ -8,6 +11,10 @@ struct ChatView: View {
     @State private var showRenameSheet = false
     @State private var renameDraft = ""
     @State private var showDeleteConfirmation = false
+    @State private var showCamera = false
+    @State private var showFileImporter = false
+    @State private var showPhotoPicker = false
+    @State private var photoPickerItem: PhotosPickerItem?
     @FocusState private var isComposerFocused: Bool
 
     // ── Emil's custom ease-out curve ──
@@ -96,10 +103,16 @@ struct ChatView: View {
                         .background(.ultraThinMaterial)
                 }
 
-                // ── Liquid glass composer ──
-                composer(appState: appState)
                 }
                 .safeAreaPadding(.top, 72)
+                .offset(x: contentOffset)
+                .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
+
+                VStack {
+                    Spacer()
+                    // ── Floating liquid glass composer ──
+                    composer(appState: appState)
+                }
                 .offset(x: contentOffset)
                 .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
 
@@ -260,14 +273,29 @@ struct ChatView: View {
     @ViewBuilder
     private func composer(appState: AppState) -> some View {
         @Bindable var appState = appState
+        let hasDraft = !appState.chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let isExpanded = hasDraft || !appState.chat.stagedAttachments.isEmpty
 
-        HStack(alignment: .bottom, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            if !appState.chat.stagedAttachments.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(appState.chat.stagedAttachments, id: \.path) { attachment in
+                            attachmentChip(attachment) {
+                                appState.chat.stagedAttachments.removeAll { $0.path == attachment.path }
+                            }
+                        }
+                    }
+                }
+            }
+
             TextField(
-                appState.chat.pendingClarify == nil ? "Message" : "Respond above to continue",
+                appState.chat.pendingClarify == nil ? "Send a message..." : "Respond above to continue",
                 text: $appState.chat.draft,
                 axis: .vertical
             )
-            .font(.body)
+            .font(.system(size: 17, weight: hasDraft ? .semibold : .regular))
+            .foregroundStyle(.primary)
             .lineLimit(1...6)
             .disabled(appState.chat.pendingClarify != nil)
             .focused($isComposerFocused)
@@ -277,56 +305,312 @@ struct ChatView: View {
                 Task { await appState.sendChat() }
             }
 
-            Button {
-                Task {
-                    if appState.chat.isStreaming {
-                        await appState.cancelCurrentStream()
-                    } else {
-                        await appState.sendChat()
+            HStack(alignment: .center, spacing: 12) {
+                attachmentMenu(appState: appState)
+
+                modelSelector(appState: appState)
+
+                Spacer(minLength: 6)
+
+                Button {
+                    Task {
+                        if appState.chat.isStreaming {
+                            await appState.cancelCurrentStream()
+                        } else {
+                            await appState.sendChat()
+                        }
+                        isComposerFocused = true
                     }
-                    isComposerFocused = true
+                } label: {
+                    Image(systemName: appState.chat.isStreaming ? "stop.fill" : "arrow.up")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(sendButtonForeground(appState))
+                        .frame(width: 38, height: 38)
+                        .background(
+                            Circle()
+                                .fill(sendButtonBackground(appState))
+                                .environment(\.colorScheme, .dark)
+                        )
                 }
-            } label: {
-                Image(systemName: appState.chat.isStreaming
-                    ? "stop.fill"
-                    : "arrow.up")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .environment(\.colorScheme, .dark)
-                    )
-                    .overlay(
-                        Circle()
-                            .stroke(.white.opacity(0.2), lineWidth: 0.5)
-                    )
+                .buttonStyle(.plain)
+                .disabled(!canSend(appState))
             }
-            .disabled(!canSend(appState))
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.top, isExpanded ? 14 : 12)
+        .padding(.bottom, 12)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(.white.opacity(0.15), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .strokeBorder(.white.opacity(0.12), lineWidth: 1)
                 )
-                .shadow(color: .black.opacity(0.08), radius: 8, y: -2)
+                .shadow(color: .black.opacity(0.18), radius: 16, y: -4)
         )
         .padding(.horizontal, 12)
         .padding(.bottom, 8)
-        .padding(.top, 6)
+        .padding(.top, 0)
+        .animation(easeOut, value: isExpanded)
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result {
+                appendFileAttachments(urls, to: appState)
+            }
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $photoPickerItem, matching: .any(of: [.images, .videos]))
+        .sheet(isPresented: $showCamera) {
+            CameraCaptureView { image in
+                appendCameraAttachment(image, to: appState)
+                showCamera = false
+            } onCancel: {
+                showCamera = false
+            }
+            .ignoresSafeArea()
+        }
+        .onChange(of: photoPickerItem) { _, item in
+            guard let item else { return }
+            Task { await appendPhotoAttachment(item, to: appState) }
+        }
+        .task {
+            if appState.availableModels.isEmpty && !appState.isFetchingModels {
+                await appState.fetchModels()
+            }
+        }
     }
 
     private func canSend(_ appState: AppState) -> Bool {
         if appState.chat.isStreaming { return true }
         if appState.chat.isLoading { return false }
         if appState.chat.pendingClarify != nil { return false }
-        return !appState.chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return !appState.chat.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !appState.chat.stagedAttachments.isEmpty
+    }
+
+    private func sendButtonForeground(_ appState: AppState) -> Color {
+        canSend(appState) ? .white : .white.opacity(0.32)
+    }
+
+    private func sendButtonBackground(_ appState: AppState) -> AnyShapeStyle {
+        canSend(appState)
+            ? AnyShapeStyle(Color.accentColor.gradient)
+            : AnyShapeStyle(.ultraThinMaterial)
+    }
+
+    private func attachmentMenu(appState: AppState) -> some View {
+        Menu {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button { showCamera = true } label: {
+                    Label("Take Photo", systemImage: "camera")
+                }
+            }
+
+            Button { showPhotoPicker = true } label: {
+                Label("From Library", systemImage: "photo.on.rectangle")
+            }
+
+            Button { showFileImporter = true } label: {
+                Label("Upload File", systemImage: "doc.badge.plus")
+            }
+        } label: {
+            addControl
+        }
+        .menuStyle(.button)
+    }
+
+    private func modelSelector(appState: AppState) -> some View {
+        Menu {
+            Button {
+                appState.defaultModel = ""
+                appState.defaultModelProvider = ""
+                appState.credentialStore.saveDefaultModel("")
+                appState.credentialStore.saveDefaultModelProvider("")
+            } label: {
+                Label("Use server default", systemImage: appState.defaultModel.isEmpty ? "checkmark" : "circle")
+            }
+
+            ForEach(appState.availableModels, id: \.providerId) { group in
+                Section(group.provider ?? group.providerId ?? "Models") {
+                    ForEach(group.models ?? []) { entry in
+                        Button {
+                            appState.defaultModel = entry.id
+                            appState.defaultModelProvider = group.providerId ?? group.provider ?? ""
+                            appState.credentialStore.saveDefaultModel(entry.id)
+                            appState.credentialStore.saveDefaultModelProvider(appState.defaultModelProvider)
+                        } label: {
+                            Label(entry.label ?? entry.id, systemImage: appState.defaultModel == entry.id ? "checkmark" : "circle")
+                        }
+                    }
+                }
+            }
+        } label: {
+            modelControl(title: selectedModelTitle(appState))
+        }
+        .menuStyle(.button)
+    }
+
+    private func selectedModelTitle(_ appState: AppState) -> String {
+        guard !appState.defaultModel.isEmpty else { return appState.serverDefaultModel ?? "Model" }
+        return appState.availableModels
+            .flatMap { $0.models ?? [] }
+            .first { $0.id == appState.defaultModel }?
+            .label ?? appState.defaultModel
+    }
+
+    private var addControl: some View {
+        Image(systemName: "plus")
+            .font(.system(size: 21, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 24, height: 24)
+            .contentShape(Rectangle())
+    }
+
+    private func modelControl(title: String) -> some View {
+        HStack(spacing: 5) {
+            Text(title)
+                .font(.subheadline.weight(.regular))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Image(systemName: "chevron.down")
+                .font(.system(size: 13, weight: .bold))
+        }
+        .foregroundStyle(.white.opacity(0.82))
+        .frame(maxWidth: 144, alignment: .leading)
+        .frame(height: 32)
+        .contentShape(Rectangle())
+    }
+
+    private func attachmentChip(_ attachment: AttachmentDTO, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            attachmentPreview(attachment)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(attachment.name)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(attachment.mime)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: 132, alignment: .leading)
+
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.leading, 5)
+        .padding(.trailing, 8)
+        .padding(.vertical, 5)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func attachmentPreview(_ attachment: AttachmentDTO) -> some View {
+        let cornerRadius: CGFloat = 8
+
+        if attachment.mime.hasPrefix("image/"),
+           let image = UIImage(contentsOfFile: attachment.path) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 38, height: 38)
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(fileFormatGradient(for: attachment))
+                .frame(width: 38, height: 38)
+                .overlay(
+                    Image(systemName: fileFormatIcon(for: attachment))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+                )
+        }
+    }
+
+    private func fileFormatIcon(for attachment: AttachmentDTO) -> String {
+        switch fileFormatKind(for: attachment) {
+        case .pdf:
+            return "doc.richtext"
+        case .sheet:
+            return "tablecells"
+        case .text:
+            return "doc.text"
+        case .archive:
+            return "doc.zipper"
+        case .other:
+            return "doc"
+        }
+    }
+
+    private func fileFormatGradient(for attachment: AttachmentDTO) -> LinearGradient {
+        let base: Color
+        switch fileFormatKind(for: attachment) {
+        case .pdf:
+            base = Color(hex: "490908")
+        case .text:
+            base = Color(hex: "043A4E")
+        case .sheet:
+            base = Color(hex: "153C17")
+        case .archive:
+            base = Color(hex: "5F4C07")
+        case .other:
+            base = Color(hex: "2A2A2C")
+        }
+
+        return LinearGradient(
+            colors: [base.opacity(0.98), base.opacity(0.82)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private func fileFormatKind(for attachment: AttachmentDTO) -> FileFormatKind {
+        let ext = URL(fileURLWithPath: attachment.name).pathExtension.lowercased()
+        switch ext {
+        case "pdf":
+            return .pdf
+        case "csv", "xls", "xlsx", "numbers":
+            return .sheet
+        case "doc", "docx", "pages", "txt", "md", "rtf":
+            return .text
+        case "zip", "tar", "gz":
+            return .archive
+        default:
+            return .other
+        }
+    }
+
+    private func appendFileAttachments(_ urls: [URL], to appState: AppState) {
+        for url in urls {
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            let type = UTType(filenameExtension: url.pathExtension)
+            let mime = type?.preferredMIMEType ?? "application/octet-stream"
+            appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+        }
+    }
+
+    private func appendCameraAttachment(_ image: UIImage, to appState: AppState) {
+        let url = FileManager.default.temporaryDirectory.appending(path: "hermes-photo-\(UUID().uuidString).jpg")
+        if let data = image.jpegData(compressionQuality: 0.86) {
+            try? data.write(to: url)
+        }
+        appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: "image/jpeg"))
+    }
+
+    private func appendPhotoAttachment(_ item: PhotosPickerItem, to appState: AppState) async {
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        let contentType = item.supportedContentTypes.first
+        let ext = contentType?.preferredFilenameExtension ?? "jpg"
+        let mime = contentType?.preferredMIMEType ?? "image/jpeg"
+        let url = FileManager.default.temporaryDirectory.appending(path: "hermes-library-\(UUID().uuidString).\(ext)")
+        try? data.write(to: url)
+        appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+        photoPickerItem = nil
     }
 
     private var renameSheet: some View {
@@ -517,6 +801,66 @@ private struct StreamingDotsView: View {
                 }
             }
             .frame(height: 20, alignment: .leading)
+        }
+    }
+}
+
+private enum FileFormatKind {
+    case pdf
+    case text
+    case sheet
+    case archive
+    case other
+}
+
+private extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255.0
+        let g = Double((int >> 8) & 0xFF) / 255.0
+        let b = Double(int & 0xFF) / 255.0
+        self.init(red: r, green: g, blue: b)
+    }
+}
+
+private struct CameraCaptureView: UIViewControllerRepresentable {
+    let onCapture: (UIImage) -> Void
+    let onCancel: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onCapture: onCapture, onCancel: onCancel)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let onCapture: (UIImage) -> Void
+        let onCancel: () -> Void
+
+        init(onCapture: @escaping (UIImage) -> Void, onCancel: @escaping () -> Void) {
+            self.onCapture = onCapture
+            self.onCancel = onCancel
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            if let image = info[.originalImage] as? UIImage {
+                onCapture(image)
+            } else {
+                onCancel()
+            }
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            onCancel()
         }
     }
 }
