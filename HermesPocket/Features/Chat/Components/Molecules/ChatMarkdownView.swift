@@ -45,11 +45,7 @@ private struct ChatMarkdownWebView: UIViewRepresentable {
         view.scrollView.showsVerticalScrollIndicator = false
         view.scrollView.showsHorizontalScrollIndicator = false
         context.coordinator.webView = view
-        if let baseURL = Bundle.main.resourceURL?.appendingPathComponent("Web", isDirectory: true) {
-            view.loadHTMLString(Self.htmlShell, baseURL: baseURL)
-        } else {
-            view.loadHTMLString(Self.htmlShell, baseURL: nil)
-        }
+        view.loadHTMLString(Self.htmlShell, baseURL: Bundle.main.resourceURL)
         return view
     }
 
