@@ -3,15 +3,19 @@ import MarkdownUI
 import LaTeXSwiftUI
 import WebKit
 
-// MARK: - Colors
+// MARK: - Design tokens (match existing chat UI)
 
-private enum C {
+private enum D {
+    static let fontSize: CGFloat = 18
+    static let lineSpacing: CGFloat = 6
+    static let tracking: CGFloat = -0.2
+    static let lineHeightEm: CGFloat = lineSpacing / fontSize  // 0.333em
+
     static let textPrimary = Color.white
     static let textSecondary = Color.white.opacity(0.55)
     static let surface = Color.white.opacity(0.06)
-    static let accent = Color(red: 0.04, green: 0.52, blue: 1.0) // #0A84FF
+    static let accent = Color(red: 0.04, green: 0.52, blue: 1.0)
     static let border = Color.white.opacity(0.10)
-    static let codeBg = Color.white.opacity(0.07)
     static let inlineCodeBg = Color.white.opacity(0.12)
     static let quoteBar = Color.white.opacity(0.28)
 }
@@ -21,6 +25,8 @@ private enum C {
 struct ChatMarkdownView: View {
     let markdown: String
     let isStreaming: Bool
+
+    private var normalized: String { normalizeMarkdown(markdown) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -38,8 +44,8 @@ struct ChatMarkdownView: View {
                     LaTeX(text)
                         .blockMode(.blockViews)
                         .errorMode(.original)
-                        .font(.system(size: 17))
-                        .foregroundStyle(C.textPrimary)
+                        .font(.system(size: D.fontSize))
+                        .foregroundStyle(D.textPrimary)
                         .textSelection(.enabled)
                         .padding(.vertical, 8)
                 case .mermaid(let text):
@@ -48,6 +54,33 @@ struct ChatMarkdownView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Markdown normalization (ensure blank lines around blocks)
+
+    private func normalizeMarkdown(_ src: String) -> String {
+        var t = src.replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+
+        // Ensure blank line before block-level starts
+        let patterns = [
+            "(?m)(\\S)(#{1,6}\\s)",
+            "(?m)(\\S)(\\n>\\s)",
+            "(?m)(\\S)(\\n\\d+\\.\\s)",
+            "(?m)(\\S)(\\n[-*+]\\s)",
+            "(?m)(\\S)(\\n\\[[ xX]\\]\\s)",
+            "(?m)(\\S)(\\n```)",
+            "(?m)(\\S)(\\n~~~)",
+            "(?m)(\\S)(\\n\\$\\$)",
+            "(?m)(\\S)((?:[-*_]\\s*){3,}$)",
+        ]
+        for p in patterns {
+            if let r = try? NSRegularExpression(pattern: p) {
+                let range = NSRange(location: 0, length: (t as NSString).length)
+                t = r.stringByReplacingMatches(in: t, options: [], range: range, withTemplate: "$1\n\n$2")
+            }
+        }
+        return t
     }
 
     // MARK: - Segment Parser
@@ -60,7 +93,7 @@ struct ChatMarkdownView: View {
 
     private var segments: [Segment] {
         var result: [Segment] = []
-        let lines = markdown.components(separatedBy: "\n")
+        let lines = normalized.components(separatedBy: "\n")
         var buf: [String] = []
         var i = 0
 
@@ -73,10 +106,9 @@ struct ChatMarkdownView: View {
         while i < lines.count {
             let trimmed = lines[i].trimmingCharacters(in: .whitespaces)
 
-            // Mermaid fenced block
-            if trimmed.hasPrefix("```mermaid") || trimmed.hasPrefix("~~~mermaid") {
+            // Mermaid fenced block (```mermaid or ~~~mermaid)
+            if let fence = mermaidFence(trimmed) {
                 flush()
-                let fence = trimmed.hasPrefix("```") ? "```" : "~~~"
                 var blockLines: [String] = []
                 i += 1
                 while i < lines.count, !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix(fence) {
@@ -89,12 +121,12 @@ struct ChatMarkdownView: View {
                 continue
             }
 
-            // Display math $$...$$ (inline or multi-line)
-            if trimmed.hasPrefix("$$") {
+            // Display math $$...$$
+            if trimmed.hasPrefix("$$") && !trimmed.hasPrefix("$$$") {
                 flush()
-                let afterOpen = String(trimmed.dropFirst(2))
-                if let close = afterOpen.range(of: "$$") {
-                    let math = afterOpen[afterOpen.startIndex..<close.lowerBound]
+                let after = String(trimmed.dropFirst(2))
+                if let close = after.range(of: "$$") {
+                    let math = after[after.startIndex..<close.lowerBound]
                         .trimmingCharacters(in: .whitespaces)
                     if !math.isEmpty { result.append(.math(String(math))) }
                     i += 1
@@ -124,6 +156,16 @@ struct ChatMarkdownView: View {
         flush()
         return result
     }
+
+    private func mermaidFence(_ trimmed: String) -> String? {
+        for f in ["```", "~~~"] where trimmed.hasPrefix(f) {
+            let lang = trimmed.dropFirst(f.count)
+                .trimmingCharacters(in: .whitespaces)
+                .lowercased()
+            if lang == "mermaid" { return f }
+        }
+        return nil
+    }
 }
 
 // MARK: - Code Block
@@ -141,8 +183,9 @@ private struct HermesCodeBlockView: View {
         VStack(spacing: 0) {
             HStack {
                 Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(C.textSecondary)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(D.textSecondary)
+                    .tracking(0.04)
                 Spacer()
                 Button {
                     UIPasteboard.general.string = configuration.content
@@ -156,30 +199,29 @@ private struct HermesCodeBlockView: View {
                         Image(systemName: "doc.on.doc").opacity(didCopy ? 0 : 1)
                         Image(systemName: "checkmark").opacity(didCopy ? 1 : 0)
                     }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(didCopy ? C.accent : C.textSecondary)
-                    .frame(width: 16, height: 16)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(didCopy ? D.accent : D.textSecondary)
+                    .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(C.surface.opacity(0.78))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(D.surface.opacity(0.8))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(configuration.content.isEmpty ? " " : configuration.content)
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(C.textPrimary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-            }
-            .background(C.surface.opacity(0.42))
+            Text(configuration.content.isEmpty ? " " : configuration.content)
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundStyle(D.textPrimary)
+                .lineSpacing(2)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
         }
+        .background(D.surface.opacity(0.35))
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(C.border.opacity(0.65), lineWidth: 1)
+                .stroke(D.border.opacity(0.65), lineWidth: 1)
         )
     }
 }
@@ -193,11 +235,11 @@ private struct MermaidDiagramView: View {
     var body: some View {
         MermaidWebView(source: source, height: $height)
             .frame(minHeight: 120, idealHeight: height, maxHeight: max(height, 200))
-            .background(C.surface.opacity(0.35))
+            .background(D.surface.opacity(0.35))
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(C.border.opacity(0.65), lineWidth: 1)
+                    .stroke(D.border.opacity(0.65), lineWidth: 1)
             )
     }
 }
@@ -231,12 +273,13 @@ private struct MermaidWebView: UIViewRepresentable {
     }
 
     private func mermaidHTML(_ src: String) -> String {
-        let escaped = src.replacingOccurrences(of: "\\", with: "\\\\")
+        let escaped = src
+            .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "`", with: "\\`")
         return """
         <!doctype html><html><head>
         <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-        <style>html,body{margin:0;padding:12px;background:transparent;overflow:hidden}
+        <style>html,body{margin:0;padding:14px;background:transparent;overflow:hidden}
         svg{max-width:100%;height:auto}</style>
         </head><body><div id="d"></div>
         <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -264,83 +307,71 @@ private struct MermaidWebView: UIViewRepresentable {
     }
 }
 
-// MARK: - Hermes Theme (MarkdownUI)
+// MARK: - Hermes Theme
 
 extension Theme {
     @MainActor static let hermes = Theme()
-        // -- inline text --
         .text {
-            ForegroundColor(C.textPrimary)
+            FontSize(D.fontSize)
+            ForegroundColor(D.textPrimary)
             BackgroundColor(.clear)
-            FontSize(17)
         }
         .code {
             FontFamilyVariant(.monospaced)
             FontSize(.em(0.88))
-            BackgroundColor(C.inlineCodeBg)
+            BackgroundColor(D.inlineCodeBg)
         }
         .strong { FontWeight(.semibold) }
         .link {
-            ForegroundColor(C.accent)
+            ForegroundColor(D.accent)
             UnderlineStyle(.single)
         }
 
-        // -- headings --
-        .heading1 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 22, bottom: 18)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.55)) } }
-        .heading2 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 18, bottom: 17)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.28)) } }
-        .heading3 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 16, bottom: 16)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.12)) } }
-        .heading4 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 14, bottom: 15)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.02)) } }
-        .heading5 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 12, bottom: 14)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(0.94)) } }
-        .heading6 { c in c.label.relativeLineSpacing(.em(0.12)).markdownMargin(top: 12, bottom: 14)
-            .markdownTextStyle { FontWeight(.medium); FontSize(.em(0.88)); ForegroundColor(C.textSecondary) } }
+        .heading1 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.55)) } }
+        .heading2 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.28)) } }
+        .heading3 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.12)) } }
+        .heading4 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.02)) } }
+        .heading5 { c in c.label.markdownTextStyle { FontWeight(.semibold); FontSize(.em(0.94)) } }
+        .heading6 { c in c.label.markdownTextStyle { FontWeight(.medium); FontSize(.em(0.88)); ForegroundColor(D.textSecondary) } }
 
-        // -- paragraph --
-        .paragraph { c in c.label.fixedSize(horizontal: false, vertical: true)
-            .relativeLineSpacing(.em(0.24)).markdownMargin(top: 0, bottom: 14) }
+        .paragraph { c in c.label
+            .relativeLineSpacing(.em(D.lineHeightEm))
+            .markdownMargin(top: 0, bottom: 14)
+        }
 
-        // -- blockquote --
         .blockquote { c in
             HStack(alignment: .top, spacing: 0) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(C.quoteBar).relativeFrame(width: .em(0.2))
-                c.label.relativePadding(.leading, length: .em(0.9))
-                    .relativePadding(.vertical, length: .em(0.15))
+                    .fill(D.quoteBar).frame(width: 3).padding(.trailing, 8)
+                c.label.relativePadding(.vertical, length: .em(0.15))
                     .markdownTextStyle { BackgroundColor(.clear) }
             }
             .fixedSize(horizontal: false, vertical: true)
             .markdownMargin(top: 18, bottom: 20)
         }
 
-        // -- code block (overridden by `markdownBlockStyle`, but kept as fallback) --
-        .codeBlock { c in
-            c.label.markdownMargin(top: 18, bottom: 22)
-        }
+        .codeBlock { c in c.label.markdownMargin(top: 18, bottom: 22) }
 
-        // -- lists --
-        .listItem { c in c.label.fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: .em(0.18), bottom: .em(0.18)) }
+        .listItem { c in c.label
+            .markdownMargin(top: .em(0.18), bottom: .em(0.18))
+        }
         .taskListMarker { c in
             Image(systemName: c.isCompleted ? "checkmark.square.fill" : "square")
-                .foregroundStyle(c.isCompleted ? C.accent : C.textSecondary)
-                .imageScale(.small)
+                .foregroundStyle(c.isCompleted ? D.accent : D.textSecondary)
+                .font(.system(size: 18))
                 .relativeFrame(minWidth: .em(1.5), alignment: .trailing)
         }
 
-        // -- table --
         .table { c in
             ScrollView(.horizontal, showsIndicators: false) {
-                c.label.fixedSize(horizontal: false, vertical: true)
-                    .markdownTableBorderStyle(.init(color: C.border.opacity(0.42)))
-                    .markdownTableBackgroundStyle(.alternatingRows(C.surface.opacity(0.18), C.surface.opacity(0.28)))
+                c.label
+                    .fixedSize(horizontal: false, vertical: true)
+                    .markdownTableBorderStyle(.init(color: D.border.opacity(0.42)))
+                    .markdownTableBackgroundStyle(.alternatingRows(D.surface.opacity(0.18), D.surface.opacity(0.28)))
             }
             .markdownMargin(top: 18, bottom: 22)
             .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(C.border.opacity(0.55), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(D.border.opacity(0.55), lineWidth: 1))
         }
         .tableCell { c in
             c.label.markdownTextStyle {
@@ -352,6 +383,5 @@ extension Theme {
             .relativeLineSpacing(.em(0.22))
         }
 
-        // -- divider --
-        .thematicBreak { Divider().overlay(C.border.opacity(0.75)).markdownMargin(top: 14, bottom: 14) }
+        .thematicBreak { Divider().overlay(D.border.opacity(0.75)).markdownMargin(top: 14, bottom: 14) }
 }
