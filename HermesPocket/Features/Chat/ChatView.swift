@@ -236,7 +236,6 @@ struct ChatView: View {
     }
 
     private func dismissKeyboard() {
-        NotificationCenter.default.post(name: .chatDismissTextSelection, object: nil)
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
