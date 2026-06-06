@@ -165,32 +165,9 @@ struct ChatSidebarView: View {
     }
 
     private func glassControlIcon(systemName: String) -> some View {
-        ZStack {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    Circle()
-                        .fill(.white.opacity(0.08))
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [.white.opacity(0.42), .white.opacity(0.10)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
-                .environment(\.colorScheme, .dark)
-
-            Image(systemName: systemName)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: 46, height: 46)
+        GlassCircleButton(systemName: systemName)
+            .environment(\.colorScheme, .dark)
+            .foregroundStyle(.white)
     }
 
     private var sidebarSettingsSheet: some View {

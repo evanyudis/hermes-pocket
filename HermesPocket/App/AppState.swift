@@ -241,8 +241,7 @@ final class AppState {
             let client = try requireAPIClient()
             let sessionID = try await ensureSessionID()
             let now = Date().timeIntervalSince1970
-            let optimisticMessage = message.isEmpty ? attachments.map(\.name).joined(separator: ", ") : message
-            chat.messages.append(MessageDTO(role: "user", content: .text(optimisticMessage), timestamp: now))
+            chat.messages.append(MessageDTO(role: "user", content: .text(message), timestamp: now, attachments: attachments))
             chat.messages.append(MessageDTO(role: "assistant", content: .text(""), timestamp: now))
             chat.draft = ""
             chat.stagedAttachments = []

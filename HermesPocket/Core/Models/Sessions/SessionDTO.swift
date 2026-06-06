@@ -117,6 +117,7 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
     let role: String
     let content: MessageContentDTO
     let timestamp: Double?
+    let attachments: [AttachmentDTO]
 
     var displayText: String {
         switch content {
@@ -131,10 +132,11 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
         case role, content, timestamp
     }
 
-    init(role: String, content: MessageContentDTO, timestamp: Double?) {
+    init(role: String, content: MessageContentDTO, timestamp: Double?, attachments: [AttachmentDTO] = []) {
         self.role = role
         self.content = content
         self.timestamp = timestamp
+        self.attachments = attachments
     }
 
     init(from decoder: Decoder) throws {
@@ -142,6 +144,7 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
         role = try container.decodeIfPresent(String.self, forKey: .role) ?? "assistant"
         content = try container.decodeIfPresent(MessageContentDTO.self, forKey: .content) ?? .text("")
         timestamp = try container.decodeIfPresent(Double.self, forKey: .timestamp)
+        attachments = []
     }
 }
 
