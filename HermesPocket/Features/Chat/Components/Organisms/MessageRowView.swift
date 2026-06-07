@@ -53,12 +53,8 @@ struct MessageRowView: View {
             StreamingDotsView()
                 .padding(.vertical, 10)
                 .frame(height: 28, alignment: .leading)
-        } else {
-            ChatMarkdownView(
-                markdown: message.displayText.isEmpty ? "Thinking..." : message.displayText,
-                isStreaming: isStreaming
-            )
-            .padding(.vertical, 4)
+        } else if hasText {
+            messageText(message.displayText)
         }
     }
 
