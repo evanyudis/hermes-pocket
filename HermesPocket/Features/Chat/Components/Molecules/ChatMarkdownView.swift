@@ -127,8 +127,12 @@ private func mermaidFence(_ t: String) -> String? {
 private func normalize(_ src: String) -> String {
     var t = src.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
 
-    // 1. Add blank line before existing fences
+    // 1. Add blank line before existing fences (bare ``` or ```language)
     if let r = try? NSRegularExpression(pattern: "(?m)(\\S)(\\n```)") {
+        let range = NSRange(location: 0, length: t.utf16.count)
+        t = r.stringByReplacingMatches(in: t, range: range, withTemplate: "$1\n\n$2")
+    }
+    if let r = try? NSRegularExpression(pattern: "(?m)(\\S)(\\n```[a-zA-Z])") {
         let range = NSRange(location: 0, length: t.utf16.count)
         t = r.stringByReplacingMatches(in: t, range: range, withTemplate: "$1\n\n$2")
     }
