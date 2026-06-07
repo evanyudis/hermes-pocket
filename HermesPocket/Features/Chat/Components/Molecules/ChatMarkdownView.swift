@@ -21,15 +21,62 @@ struct ChatMarkdownView: View {
     // Ensure blank lines around code fences so MarkdownUI detects them
     private func normalize(_ src: String) -> String {
         var t = src.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+
+        // 1. Add blank line before existing ``` fences
         if let r = try? NSRegularExpression(pattern: "(?m)(\\S)(\\n```)") {
-            t = r.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: t.utf16.count), withTemplate: "$1\n\n$2")
+            let range = NSRange(location: 0, length: t.utf16.count)
+            t = r.stringByReplacingMatches(in: t, range: range, withTemplate: "$1\n\n$2")
         }
-        return t
+
+        // 2. Detect indented code blocks (no fences) and wrap them
+        let lines = t.components(separatedBy: "\n")
+        var out: [String] = []
+        var i = 0
+        while i < lines.count {
+            let line = lines[i]
+            // Skip already-fenced blocks
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                out.append(line); i += 1
+                while i < lines.count, !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                    out.append(lines[i]); i += 1
+                }
+                if i < lines.count { out.append(lines[i]); i += 1 }
+                continue
+            }
+            // Detect indented code: first line has 0-1 indent, next lines have 2+ more indent
+            if i + 1 < lines.count, !line.isEmpty, line != "\n" {
+                let nextLine = lines[i + 1]
+                let thisIndent = line.prefix(while: { $0 == " " }).count
+                let nextIndent = nextLine.prefix(while: { $0 == " " || $0 == "\t" }).count
+                // If next line is significantly more indented, this is likely a code block start
+                if nextIndent >= thisIndent + 2, nextLine.trimmingCharacters(in: .whitespacesAndNewlines).isNotEmpty {
+                    out.append("```")
+                    out.append(line)
+                    i += 1
+                    while i < lines.count {
+                        let li = lines[i]
+                        let indent = li.prefix(while: { $0 == " " || $0 == "\t" }).count
+                        if indent >= nextIndent, li.trimmingCharacters(in: .whitespacesAndNewlines).isNotEmpty {
+                            out.append(li); i += 1
+                        } else if li.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            out.append(li); i += 1
+                        } else {
+                            break
+                        }
+                    }
+                    out.append("```")
+                    continue
+                }
+            }
+            out.append(line); i += 1
+        }
+        return out.joined(separator: "\n")
     }
 }
 
 private extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
+    var isNotEmpty: Bool { !isEmpty }
 }
 
 // MARK: - Code Block
