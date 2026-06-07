@@ -16,6 +16,19 @@ struct ChatMarkdownView: View {
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    // Ensure blank lines around code fences so MarkdownUI detects them
+    private func normalize(_ src: String) -> String {
+        var t = src.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        if let r = try? NSRegularExpression(pattern: "(?m)(\\S)(\\n```)") {
+            t = r.stringByReplacingMatches(in: t, range: NSRange(location: 0, length: t.utf16.count), withTemplate: "$1\n\n$2")
+        }
+        return t
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 // MARK: - Code Block
