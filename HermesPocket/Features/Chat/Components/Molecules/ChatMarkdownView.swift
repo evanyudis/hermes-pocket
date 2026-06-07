@@ -103,6 +103,28 @@ private func segments(from src: String) -> [Seg] {
             continue
         }
 
+        // Handle \[ ... \] (LaTeX display math)
+        if t.hasPrefix("\\[") {
+            flush()
+            let after = String(t.dropFirst(2))
+            if let c = after.range(of: "\\]") {
+                let m = after[after.startIndex..<c.lowerBound].trimmingCharacters(in: .whitespaces)
+                if !m.isEmpty { out.append(.math(String(m))) }
+                i += 1; continue
+            }
+            var math: [String] = []; i += 1
+            while i < lines.count {
+                let lt = lines[i].trimmingCharacters(in: .whitespaces)
+                if let r = lt.range(of: "\\]") {
+                    math.append(String(lt[lt.startIndex..<r.lowerBound])); i += 1; break
+                }
+                math.append(lines[i]); i += 1
+            }
+            let m = math.joined(separator: "\n").trimmingCharacters(in: .whitespaces)
+            if !m.isEmpty { out.append(.math(m)) }
+            continue
+        }
+
         buf.append(lines[i]); i += 1
     }
     flush()
