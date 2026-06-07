@@ -18,6 +18,9 @@ packages:
   SwiftDraw:
     url: https://github.com/swhitty/SwiftDraw
     from: 0.18.1
+  Markdown:
+    url: https://github.com/swiftlang/swift-markdown
+    branch: main
 targets:
   HermesPocket:
     type: application
@@ -26,10 +29,12 @@ targets:
       - path: HermesPocket
     resources:
       - path: HermesPocket/Resources
+      - path: HermesPocket/Resources/Assets.xcassets
     dependencies:
       - package: MarkdownUI
       - package: LaTeXSwiftUI
       - package: SwiftDraw
+      - package: Markdown
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.evanyudis.hermes-pocket

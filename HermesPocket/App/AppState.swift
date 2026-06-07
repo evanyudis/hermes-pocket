@@ -27,6 +27,7 @@ final class AppState {
     var serverDefaultModel: String?
     var isFetchingModels = false
     var isStreamDebugLoggingEnabled = false
+    var completedToolSteps: [ToolCallStep] = []
 
     @ObservationIgnored let credentialStore = CredentialStore()
     @ObservationIgnored private var apiClient: HermesAPIClientProtocol?
@@ -199,6 +200,7 @@ final class AppState {
         currentSessionID = nil
         chat = ChatStore()
         chat.sessionTitle = "New Chat"
+        completedToolSteps = []
         route = .chat
     }
 
@@ -248,6 +250,8 @@ final class AppState {
 
         chat.lastError = nil
         resetPromptState()
+        chat.pendingToolSteps = []
+        completedToolSteps = []
 
         do {
             let client = try requireAPIClient()
@@ -462,6 +466,7 @@ final class AppState {
         case .token(let token):
             logStreamDebug("SSE token streamID=\(streamID) chars=\(token.count) text=\(token)")
             chat.isAwaitingAssistantStart = false
+            chat.activeToolCall = nil
             appendAssistantVisibleText(token)
         case .title(let payload):
             if !payload.title.isEmpty {
@@ -472,6 +477,14 @@ final class AppState {
             logStreamDebug("SSE done streamID=\(streamID) messages=\(payload.session.messages.count)")
             didReceiveDoneForActiveStream = true
             chat.isAwaitingAssistantStart = false
+            chat.activeToolCall = nil
+            // Finalize tool steps: move pending → completed
+            let stepsToFinalize = chat.pendingToolSteps
+            chat.pendingToolSteps = []
+            if !stepsToFinalize.isEmpty {
+                completedToolSteps = stepsToFinalize
+                logStreamDebug("Finalized \(stepsToFinalize.count) tool steps")
+            }
             resetPromptState()
             applySession(payload.session)
         case .appError(let payload):
@@ -482,10 +495,20 @@ final class AppState {
             logStreamDebug("SSE cancel streamID=\(streamID)")
             chat.isAwaitingAssistantStart = false
             chat.isStreaming = false
+            chat.activeToolCall = nil
+            if !chat.pendingToolSteps.isEmpty {
+                completedToolSteps = chat.pendingToolSteps
+                chat.pendingToolSteps = []
+            }
         case .streamEnd:
             logStreamDebug("SSE stream_end streamID=\(streamID)")
             chat.isAwaitingAssistantStart = false
             chat.isStreaming = false
+            chat.activeToolCall = nil
+            if !chat.pendingToolSteps.isEmpty {
+                completedToolSteps = chat.pendingToolSteps
+                chat.pendingToolSteps = []
+            }
         case .approval(let payload):
             chat.pendingApproval = payload
             chat.pendingApprovalCount = max(chat.pendingApprovalCount, 1)
@@ -499,7 +522,26 @@ final class AppState {
             Task { [weak self] in
                 await self?.refreshPendingPrompts(sessionID: sessionID)
             }
-        case .reasoning, .toolStart, .toolComplete, .contextStatus, .unknown:
+        case .toolStart(let event):
+            logStreamDebug("SSE tool streamID=\(streamID) name=\(event.name)")
+            chat.activeToolCall = ActiveToolCall(name: event.name, preview: event.preview, args: event.args)
+            // Accumulate step immediately so it's tracked even if stream ends early
+            chat.pendingToolSteps.append(ToolCallStep(
+                name: event.name,
+                preview: event.preview,
+                args: event.args,
+                status: .complete
+            ))
+        case .toolComplete(let event):
+            logStreamDebug("SSE tool_complete streamID=\(streamID) name=\(event.name)")
+            chat.activeToolCall = nil
+            // Update the last matching step's status if it was an error
+            if event.isError {
+                if let idx = chat.pendingToolSteps.lastIndex(where: { $0.name == event.name }) {
+                    chat.pendingToolSteps[idx].status = .error
+                }
+            }
+        case .reasoning, .contextStatus, .unknown:
             break
         }
     }
@@ -580,12 +622,59 @@ final class AppState {
         chat.sessionModel = session.model
         chat.sessionProfile = session.profile
         chat.sessionUpdatedAt = session.updatedAt ?? session.lastMessageAt ?? session.pendingStartedAt
-        chat.messages = session.messages
+        
+        // Merge server messages with local messages to preserve local IDs during streaming transition.
+        // This prevents the "stutter" when the server message replaces the locally accumulated message.
+        chat.messages = mergeMessages(local: chat.messages, server: session.messages)
+        
         chat.activeStreamID = session.activeStreamId
         chat.isStreaming = session.activeStreamId != nil
         chat.isAwaitingAssistantStart = false
         chat.isLoading = false
+        // Populate completedToolSteps from session tool_calls.
+        // Only update when server provides data — don't wipe steps set from pendingToolSteps.
+        if let toolCalls = session.toolCalls {
+            completedToolSteps = toolCalls.compactMap { tc in
+                guard let name = tc.name else { return nil }
+                let status: ToolCallStep.Status = tc.isError == true ? .error : .complete
+                return ToolCallStep(
+                    name: name,
+                    preview: tc.preview,
+                    args: tc.args ?? [:],
+                    status: status
+                )
+            }
+        }
         upsertSessionSummary(from: session)
+    }
+    
+    /// Merges server messages with local messages, preserving local IDs when displayed content matches.
+    /// This prevents SwiftUI from treating the transition as removing/adding rows.
+    private func mergeMessages(local: [MessageDTO], server: [MessageDTO]) -> [MessageDTO] {
+        guard !local.isEmpty else { return server }
+        
+        var result: [MessageDTO] = []
+        var localIndex = 0
+        
+        for serverMsg in server {
+            // Try to find a matching local message
+            if localIndex < local.count {
+                let localMsg = local[localIndex]
+                
+                // Match by role and displayed content
+                if localMsg.role == serverMsg.role && localMsg.displayText == serverMsg.displayText {
+                    // Keep the local message (preserves ID for smooth SwiftUI transition)
+                    result.append(localMsg)
+                    localIndex += 1
+                    continue
+                }
+            }
+            
+            // No match found, use server message
+            result.append(serverMsg)
+        }
+        
+        return result
     }
 
     private func applySessionIfNeeded(_ session: SessionDTO) {
@@ -671,6 +760,7 @@ final class AppState {
         chat.activeStreamID = nil
         chat.isStreaming = false
         chat.isAwaitingAssistantStart = false
+        chat.activeToolCall = nil
     }
 
     private func requireAPIClient() throws -> HermesAPIClientProtocol {

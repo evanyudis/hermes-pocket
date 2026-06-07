@@ -84,6 +84,14 @@ struct SessionRenameRequestDTO: Encodable {
     let title: String
 }
 
+struct SessionToolCallDTO: Decodable, Equatable {
+    let name: String?
+    let preview: String?
+    let args: [String: String]?
+    let isError: Bool?
+    let status: String?
+}
+
 struct SessionDTO: Decodable, Equatable {
     let sessionId: String
     let title: String
@@ -96,6 +104,7 @@ struct SessionDTO: Decodable, Equatable {
     let lastMessageAt: Double?
     let model: String?
     let profile: String?
+    let toolCalls: [SessionToolCallDTO]?
 
     static let empty = SessionDTO(
         sessionId: "",
@@ -108,7 +117,8 @@ struct SessionDTO: Decodable, Equatable {
         updatedAt: nil,
         lastMessageAt: nil,
         model: nil,
-        profile: nil
+        profile: nil,
+        toolCalls: nil
     )
 }
 
@@ -122,10 +132,38 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
     var displayText: String {
         switch content {
         case .text(let text):
-            return text
+            return Self.stripThinkingContent(text)
         case .unsupported:
             return "Unsupported message payload"
         }
+    }
+
+    /// Strips chain-of-thought / reasoning tags that some models (e.g. DeepSeek, Qwen)
+    /// embed in the output.
+    private static func stripThinkingContent(_ text: String) -> String {
+        var result = text
+
+        let thinkingPatterns = [
+            "(?i)<thinking>[\\s\\S]*?</thinking>",
+            "(?i)<think>[\\s\\S]*?</think>",
+            "(?i)\\[thinking\\][\\s\\S]*?\\[/thinking\\]",
+            "(?i)<scratchpad>[\\s\\S]*?</scratchpad>",
+            "(?i)<reasoning>[\\s\\S]*?</reasoning>",
+            "(?i)<analysis>[\\s\\S]*?</analysis>",
+            "(?i)<reflection>[\\s\\S]*?</reflection>",
+            // Catch unclosed thinking tags (e.g., if stream ended mid-thinking)
+            "(?i)<thinking>[\\s\\S]*$",
+            "(?i)<think>[\\s\\S]*$"
+        ]
+
+        for pattern in thinkingPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                let nsRange = NSRange(result.startIndex..., in: result)
+                result = regex.stringByReplacingMatches(in: result, options: [], range: nsRange, withTemplate: "")
+            }
+        }
+
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private enum CodingKeys: String, CodingKey {

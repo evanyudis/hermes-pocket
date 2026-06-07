@@ -72,15 +72,14 @@ struct ChatView: View {
                 } else {
                     ScrollViewReader { proxy in
                         List(Array(appState.chat.messages.enumerated()), id: \.element.id) { index, message in
+                            let isLastAssistant = index == appState.chat.messages.indices.last && message.role == "assistant"
                             MessageRowView(
                                 message: message,
-                                isStreaming: appState.chat.isStreaming
-                                    && index == appState.chat.messages.indices.last
-                                    && message.role == "assistant",
-                                isAwaitingStart: appState.chat.isAwaitingAssistantStart
-                                    && index == appState.chat.messages.indices.last
-                                    && message.role == "assistant",
-                                previousRole: index > 0 ? appState.chat.messages[index - 1].role : nil
+                                isStreaming: appState.chat.isStreaming && isLastAssistant,
+                                isAwaitingStart: appState.chat.isAwaitingAssistantStart && isLastAssistant,
+                                previousRole: index > 0 ? appState.chat.messages[index - 1].role : nil,
+                                activeToolCall: isLastAssistant ? appState.chat.activeToolCall : nil,
+                                completedToolSteps: isLastAssistant ? appState.completedToolSteps : []
                             )
                             .id(message.id)
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
@@ -88,13 +87,6 @@ struct ChatView: View {
                         }
                         .listStyle(.plain)
                         .scrollContentBackground(.hidden)
-                        .scrollDismissesKeyboard(.interactively)
-                        .simultaneousGesture(
-                            TapGesture().onEnded {
-                                dismissKeyboard()
-                                isComposerFocused = false
-                            }
-                        )
                         .onAppear {
                             scrollToBottom(proxy: proxy, animated: false)
                         }
@@ -114,8 +106,18 @@ struct ChatView: View {
                         .onChange(of: appState.chat.messages.count) { _, _ in
                             scrollToBottom(proxy: proxy, animated: true)
                         }
-                        .onChange(of: appState.chat.messages.last?.displayText ?? "") { _, _ in
-                            scrollToBottom(proxy: proxy, animated: false)
+                        .onChange(of: appState.chat.messages.last?.displayText) { _, _ in
+                            guard appState.chat.isStreaming else { return }
+                            scrollToBottom(proxy: proxy, animated: true)
+                        }
+                        .onReceive(NotificationCenter.default.publisher(for: .chainOfThoughtExpanded)) { notification in
+                            if let messageID = notification.userInfo?["messageID"] as? UUID {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                    withAnimation(.easeOut(duration: 0.25)) {
+                                        proxy.scrollTo(messageID, anchor: .bottom)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
