@@ -43,15 +43,65 @@ struct ChatMarkdownView: View {
     }
 
     // Add blank line before ``` so MarkdownUI detects code blocks
+    // Also detect indented code blocks and wrap them in ``` fences
     private func processed(_ src: String) -> String {
         var t = src.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
-        // Add blank line before ``` if there's no blank line already
-        // Matches: non-newline char, newline, but NOT another newline before ```
+        // 1. Add blank line before ``` if missing
         if let rx = try? NSRegularExpression(pattern: "(?m)([^\\n])(\\n```)") {
             let range = NSRange(location: 0, length: t.utf16.count)
             t = rx.stringByReplacingMatches(in: t, range: range, withTemplate: "$1\n\n$2")
         }
-        return t
+        // 2. Detect indented code blocks (no ``` fences) and wrap them
+        let lines = t.components(separatedBy: "\n")
+        var out: [String] = []
+        var i = 0
+        while i < lines.count {
+            let line = lines[i]
+            // Skip lines inside already-fenced blocks
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                out.append(line); i += 1
+                while i < lines.count, !lines[i].trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                    out.append(lines[i]); i += 1
+                }
+                if i < lines.count { out.append(lines[i]); i += 1 }
+                continue
+            }
+            // Skip $$ and mermaid lines (segment parser handles these)
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("$$") || mermaidFence(t) != nil {
+                out.append(line); i += 1; continue
+            }
+            // Detect indented code: look at next line for more indent
+            if i + 1 < lines.count, !line.isEmpty {
+                let next = lines[i + 1]
+                let curIndent = line.prefix(while: { $0 == " " }).count
+                let nextIndent = next.prefix(while: { $0 == " " || $0 == "\t" }).count
+                // If next line is more indented (>=2) and not empty
+                if nextIndent >= curIndent + 2 && !next.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    out.append("```")
+                    // Include this and all subsequent lines until less indented or empty code block break
+                    while i < lines.count {
+                        let li = lines[i]
+                        let indent = li.prefix(while: { $0 == " " || $0 == "\t" }).count
+                        let trimmed = li.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed.isEmpty || indent < curIndent {
+                            if trimmed.isEmpty && i + 1 < lines.count {
+                                // single empty line inside code → keep it
+                                out.append(li); i += 1
+                                continue
+                            }
+                            break
+                        } else {
+                            out.append(li); i += 1
+                        }
+                    }
+                    out.append("```")
+                    continue
+                }
+            }
+            out.append(line); i += 1
+        }
+        return out.joined(separator: "\n")
     }
 }
 
