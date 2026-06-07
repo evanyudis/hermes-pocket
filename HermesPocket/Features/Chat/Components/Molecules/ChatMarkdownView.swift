@@ -36,7 +36,7 @@ private struct HermesCodeBlockView: View {
             HStack {
                 Text(title)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(.white.opacity(0.4))
                 Spacer()
                 Button {
                     UIPasteboard.general.string = configuration.content
@@ -49,12 +49,12 @@ private struct HermesCodeBlockView: View {
                         Image(systemName: "checkmark").opacity(didCopy ? 1 : 0)
                     }
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(didCopy ? .green : .white.opacity(0.45))
+                    .foregroundStyle(didCopy ? .blue : .white.opacity(0.4))
                     .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .padding(.horizontal, 12).padding(.vertical, 7)
             .background(Color.white.opacity(0.06))
 
             Text(configuration.content.isEmpty ? " " : configuration.content)
@@ -74,11 +74,10 @@ private struct HermesCodeBlockView: View {
 
 extension Theme {
     @MainActor static let hermes = Theme()
-        // ── base text ──
+        // ── base ──
         .text {
             FontSize(18)
             ForegroundColor(.primary)
-            BackgroundColor(.clear)
         }
         .code {
             FontFamilyVariant(.monospaced)
@@ -89,87 +88,61 @@ extension Theme {
         .link { ForegroundColor(.blue); UnderlineStyle(.single) }
 
         // ── headings ──
-        .heading1 { c in c.label
-            .relativeLineSpacing(.em(0.12))
-            .markdownMargin(top: 22, bottom: 18)
-            .markdownTextStyle { FontWeight(.bold); FontSize(.em(1.55)) }
-        }
-        .heading2 { c in c.label
-            .relativeLineSpacing(.em(0.12))
-            .markdownMargin(top: 18, bottom: 17)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.28)) }
-        }
-        .heading3 { c in c.label
-            .relativeLineSpacing(.em(0.12))
-            .markdownMargin(top: 16, bottom: 16)
-            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.12)) }
-        }
+        .heading1 { c in c.label.markdownMargin(top: 22, bottom: 18)
+            .markdownTextStyle { FontWeight(.bold); FontSize(.em(1.55)) } }
+        .heading2 { c in c.label.markdownMargin(top: 18, bottom: 17)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.35)) } }
+        .heading3 { c in c.label.markdownMargin(top: 16, bottom: 16)
+            .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.15)) } }
 
         // ── paragraph ──
-        .paragraph { c in c.label
-            .fixedSize(horizontal: false, vertical: true)
-            .relativeLineSpacing(.em(0.24))
-            .markdownMargin(top: 0, bottom: 14)
-        }
+        .paragraph { c in c.label.markdownMargin(top: 0, bottom: 14).relativeLineSpacing(.em(0.22)) }
 
         // ── blockquote ──
         .blockquote { c in
             HStack(alignment: .top, spacing: 0) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.white.opacity(0.28))
-                    .relativeFrame(width: .em(0.2))
-                c.label
-                    .relativePadding(.leading, length: .em(0.9))
-                    .relativePadding(.vertical, length: .em(0.15))
-                    .markdownTextStyle { BackgroundColor(.clear) }
+                RoundedRectangle(cornerRadius: 2).fill(.white.opacity(0.25)).frame(width: 3)
+                c.label.padding(.leading, 10)
+                    .markdownTextStyle { BackgroundColor(.clear); ForegroundColor(.white.opacity(0.7)) }
             }
-            .fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: 18, bottom: 20)
+            .markdownMargin(top: 10, bottom: 14)
         }
-
-        // ── code block (overridden by markdownBlockStyle) ──
-        .codeBlock { c in c.label.markdownMargin(top: 18, bottom: 22) }
 
         // ── lists ──
-        .listItem { c in c.label
-            .fixedSize(horizontal: false, vertical: true)
-            .markdownMargin(top: .em(0.18), bottom: .em(0.18))
-        }
+        .listItem { c in c.label.markdownMargin(top: .em(0.12), bottom: .em(0.12)) }
         .taskListMarker { c in
-            Image(systemName: c.isCompleted ? "checkmark.square.fill" : "square")
-                .foregroundStyle(c.isCompleted ? .green : .white.opacity(0.45))
-                .imageScale(.small)
-                .relativeFrame(minWidth: .em(1.5), alignment: .trailing)
+            Image(systemName: c.isCompleted ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(c.isCompleted ? .blue : .white.opacity(0.3))
+                .font(.system(size: 20))
         }
+
+        // ── code block fallback (overridden above) ──
+        .codeBlock { c in c.label.markdownMargin(top: 14, bottom: 18) }
 
         // ── table ──
         .table { c in
-            ScrollView(.horizontal, showsIndicators: false) {
-                c.label
-                    .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                c.label.fixedSize(horizontal: false, vertical: true)
                     .markdownTableBorderStyle(.init(color: .white.opacity(0.10)))
                     .markdownTableBackgroundStyle(.alternatingRows(.white.opacity(0.04), .white.opacity(0.08)))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    c.label.fixedSize(horizontal: false, vertical: true)
+                        .markdownTableBorderStyle(.init(color: .white.opacity(0.10)))
+                        .markdownTableBackgroundStyle(.alternatingRows(.white.opacity(0.04), .white.opacity(0.08)))
+                }
             }
-            .markdownMargin(top: 18, bottom: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 1))
+                .markdownMargin(top: 18, bottom: 22)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.12), lineWidth: 1))
         }
         .tableCell { c in
-            c.label
-                .markdownTextStyle {
-                    if c.row == 0 { FontWeight(.semibold); BackgroundColor(.white.opacity(0.06)) }
-                    else { BackgroundColor(.clear) }
-                }
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.vertical, 10)
-                .padding(.horizontal, 14)
-                .relativeLineSpacing(.em(0.22))
+            c.label.markdownTextStyle {
+                if c.row == 0 { FontWeight(.semibold); BackgroundColor(.white.opacity(0.06)) }
+                else { BackgroundColor(.clear) }
+            }
+            .padding(.vertical, 10).padding(.horizontal, 14).relativeLineSpacing(.em(0.22))
         }
 
         // ── divider ──
-        .thematicBreak {
-            Divider()
-                .overlay(.white.opacity(0.15))
-                .markdownMargin(top: 14, bottom: 14)
-        }
+        .thematicBreak { Divider().overlay(.white.opacity(0.12)).markdownMargin(top: 14, bottom: 14) }
 }
