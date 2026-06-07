@@ -8,7 +8,8 @@ struct ChatMarkdownView: View {
     let isStreaming: Bool
 
     var body: some View {
-        Markdown(markdown.isEmpty ? "_ _" : markdown)
+        let src = normalize(markdown)
+        Markdown(src.nilIfEmpty ?? "_ _")
             .markdownTheme(.hermes)
             .markdownBlockStyle(\.codeBlock) { config in
                 HermesCodeBlockView(configuration: config)
@@ -115,10 +116,12 @@ extension Theme {
         .blockquote { c in
             HStack(alignment: .top, spacing: 0) {
                 RoundedRectangle(cornerRadius: 2).fill(.white.opacity(0.25)).frame(width: 3)
-                c.label.padding(.leading, 10)
-                    .markdownTextStyle { BackgroundColor(.clear); ForegroundColor(.white.opacity(0.7)) }
+                c.label.padding(.leading, 10).markdownTextStyle {
+                    BackgroundColor(.clear); ForegroundColor(.white.opacity(0.72))
+                }
             }
-            .markdownMargin(top: 10, bottom: 14)
+            .fixedSize(horizontal: false, vertical: true)
+            .markdownMargin(top: 12, bottom: 12)
         }
 
         // ── lists ──
