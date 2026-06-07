@@ -110,7 +110,7 @@ extension Theme {
             .markdownTextStyle { FontWeight(.semibold); FontSize(.em(1.15)) } }
 
         // ── paragraph ──
-        .paragraph { c in c.label.markdownMargin(top: 0, bottom: 14).relativeLineSpacing(.em(0.22)) }
+        .paragraph { c in c.label.markdownMargin(top: 0, bottom: 14).relativeLineSpacing(.em(0.33)) }
 
         // ── blockquote ──
         .blockquote { c in
