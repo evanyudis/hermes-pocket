@@ -147,6 +147,7 @@ struct ChatView: View {
 
                 VStack {
                     Spacer()
+                    bottomFadeBackdrop(bottomInset: proxy.safeAreaInsets.bottom)
                     // ── Floating liquid glass composer ──
                     composer
                 }
@@ -220,7 +221,7 @@ struct ChatView: View {
 
     private func topHeaderBackdrop(topInset: CGFloat) -> some View {
         ZStack(alignment: .top) {
-            FadingBlurOverlay()
+            FadingBlurOverlay(fadesDownward: true)
 
             LinearGradient(
                 colors: [
@@ -235,6 +236,25 @@ struct ChatView: View {
         }
         .frame(height: topInset + 56 + 52)
         .ignoresSafeArea(edges: .top)
+    }
+
+    private func bottomFadeBackdrop(bottomInset: CGFloat) -> some View {
+        ZStack(alignment: .bottom) {
+            FadingBlurOverlay(fadesDownward: false)
+
+            LinearGradient(
+                colors: [
+                    .clear,
+                    Color.black.opacity(0.26),
+                    Color.black.opacity(0.60),
+                    Color.black.opacity(0.85)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .frame(height: bottomInset + 80)
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private func dismissKeyboard() {
@@ -302,7 +322,7 @@ struct ChatView: View {
             onSend: {
                 Task {
                     await appState.sendChat()
-                    isComposerFocused = true
+                    dismissKeyboard()
                 }
             },
             onStop: {
@@ -450,17 +470,32 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
 }
 
 private struct FadingBlurOverlay: UIViewRepresentable {
+    let fadesDownward: Bool
+
+    init(fadesDownward: Bool = true) {
+        self.fadesDownward = fadesDownward
+    }
+
     func makeUIView(context: Context) -> UIVisualEffectView {
         let effectView = UIVisualEffectView(effect: UIBlurEffect(style: .dark))
         effectView.isUserInteractionEnabled = false
 
         let alphaMask = CAGradientLayer()
-        alphaMask.colors = [
-            UIColor.black.cgColor,
-            UIColor.black.withAlphaComponent(0.92).cgColor,
-            UIColor.black.withAlphaComponent(0.42).cgColor,
-            UIColor.clear.cgColor
-        ]
+        if fadesDownward {
+            alphaMask.colors = [
+                UIColor.black.cgColor,
+                UIColor.black.withAlphaComponent(0.92).cgColor,
+                UIColor.black.withAlphaComponent(0.42).cgColor,
+                UIColor.clear.cgColor
+            ]
+        } else {
+            alphaMask.colors = [
+                UIColor.clear.cgColor,
+                UIColor.black.withAlphaComponent(0.42).cgColor,
+                UIColor.black.withAlphaComponent(0.92).cgColor,
+                UIColor.black.cgColor
+            ]
+        }
         alphaMask.locations = [0, 0.28, 0.76, 1]
         alphaMask.startPoint = CGPoint(x: 0.5, y: 0)
         alphaMask.endPoint = CGPoint(x: 0.5, y: 1)

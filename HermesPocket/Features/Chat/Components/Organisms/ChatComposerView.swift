@@ -164,7 +164,7 @@ struct ChatComposerView: View {
         .padding(.top, isExpanded ? 14 : 12)
         .padding(.bottom, 12)
         .liquidGlass(RoundedRectangle(cornerRadius: 24, style: .continuous), preset: .composer)
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 20)
         .padding(.bottom, 8)
         .padding(.top, 0)
         .background(
