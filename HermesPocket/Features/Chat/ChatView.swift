@@ -63,10 +63,13 @@ struct ChatView: View {
                 // Messages
                 if appState.chat.isLoading {
                     Spacer()
-                    ContentUnavailableView(
-                        "Loading Chat...",
-                        systemImage: "bubble.left.and.text.bubble.right"
-                    )
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .tint(.gray)
+                        Text("Loading...")
+                            .font(.subheadline)
+                            .foregroundStyle(.gray)
+                    }
                     Spacer()
                 } else if appState.chat.messages.isEmpty {
                     Spacer()

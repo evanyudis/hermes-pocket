@@ -226,14 +226,30 @@ final class AppState {
         currentSessionID = sessionID
         route = .chat
         chat.lastError = nil
+
+        // Show cached title from sidebar list immediately so header doesn't flash blank
+        if let summary = sessions.items.first(where: { $0.sessionId == sessionID }) {
+            chat.sessionTitle = summary.title.isEmpty ? "Chat" : summary.title
+        }
+
         chat.isLoading = true
 
         do {
             let client = try requireAPIClient()
-            let payload = try await client.fetchSession(sessionID: sessionID, includeMessages: true, limit: nil)
+            // Fetch session and pending prompts in parallel
+            async let sessionPayload = client.fetchSession(sessionID: sessionID, includeMessages: true, limit: nil)
+            async let approvalEnvelope = client.fetchPendingApproval(sessionID: sessionID)
+            async let clarifyEnvelope = client.fetchPendingClarify(sessionID: sessionID)
+
+            let (payload, approval, clarify) = try await (sessionPayload, approvalEnvelope, clarifyEnvelope)
             applySession(payload.session)
             chat.isLoading = false
-            await refreshPendingPrompts(sessionID: payload.session.sessionId)
+            chat.pendingApproval = approval.pending
+            chat.pendingApprovalCount = approval.pending == nil ? 0 : max(approval.pendingCount ?? 1, 1)
+            chat.pendingClarify = clarify.pending
+            if clarify.pending == nil {
+                chat.clarifyResponseDraft = ""
+            }
             if let activeStreamId = payload.session.activeStreamId {
                 await reattachStreamIfNeeded(streamID: activeStreamId, sessionID: payload.session.sessionId)
             }

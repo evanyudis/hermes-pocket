@@ -41,10 +41,8 @@ struct ChatSidebarView: View {
                                 .foregroundStyle(.gray)
 
                             if appState.sessions.isLoading && appState.sessions.items.isEmpty {
-                                ProgressView("Loading sessions...")
-                                    .tint(.white)
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .padding(.vertical, 12)
+                                SessionShimmerList()
+                                    .padding(.vertical, 4)
                             } else if appState.sessions.items.isEmpty {
                                 Text("No sessions yet")
                                     .font(.body)
@@ -54,9 +52,9 @@ struct ChatSidebarView: View {
                                 ForEach(appState.sessions.items) { session in
                                     SessionRowView(session: session) {
                                         dismissKeyboard()
+                                        withAnimation(easeOut) { showSidebar = false }
                                         Task {
                                             await appState.loadSession(sessionID: session.sessionId)
-                                            withAnimation(easeOut) { showSidebar = false }
                                         }
                                     }
                                 }

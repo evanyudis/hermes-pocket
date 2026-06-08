@@ -26,10 +26,8 @@ struct SessionListView: View {
                                 .padding(.horizontal, 4)
 
                             if appState.sessions.isLoading && appState.sessions.items.isEmpty {
-                                ProgressView("Loading sessions...")
-                                    .tint(.white)
-                                    .foregroundStyle(.white.opacity(0.7))
-                                    .padding(.vertical, 12)
+                                SessionShimmerList()
+                                    .padding(.vertical, 4)
                             } else if appState.sessions.items.isEmpty {
                                 Text("No sessions yet")
                                     .font(.body)

@@ -14,7 +14,6 @@
 		145ED82868835D9195EDE24B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF9C8E1CA43E3B063465AD /* SessionStore.swift */; };
 		183349FF3C23EC6EC34C3512 /* ClarifyCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248AA9032222211E432C2B0B /* ClarifyCardView.swift */; };
 		19534E8EC07E6D5AE6CDCFB5 /* markdown-it.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 090393EDC2B7F632DD5EA81D /* markdown-it.min.js */; };
-		20EA4CC22FD5C2FC009AC3DA /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 20EA4CC12FD5C2FC009AC3DA /* AppIcon.icon */; };
 		219DCB8FFFB61B3407C51999 /* StreamingCursorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6211D3ECF35942CC7F9C9AF5 /* StreamingCursorView.swift */; };
 		28ED5D92C616DA0F43FD07C1 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 7BF1D3CAE168895B7FC7BF7E /* mermaid.min.js */; };
 		32AA3C862EFF84627EE3B8CF /* HermesPocketApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 531A171E02357CAAC328E2B2 /* HermesPocketApp.swift */; };
@@ -55,6 +54,7 @@
 		DF07F2961BF1DFF804E70E69 /* ToolPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96221E81C179E86057D95ABD /* ToolPresentation.swift */; };
 		E6934307ADFBAE5DBCE55192 /* highlight-github-dark.min.css in Resources */ = {isa = PBXBuildFile; fileRef = F43DD2E377D9FE908377D627 /* highlight-github-dark.min.css */; };
 		EA2C671C4359C0D8DCCB48DC /* highlight-common.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 9C1368A9C2621F550067324F /* highlight-common.min.js */; };
+		EC0F83F95E9522C77813A3A0 /* SessionShimmerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 698B110C121A8CB968D49779 /* SessionShimmerView.swift */; };
 		EC16A047FAAF388952ECB4C6 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = DCB82A0B3C339031094E2FEF /* MarkdownUI */; };
 		EEE6E2C6C94D72F13A8B7E89 /* ShimmeringTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746BB3A899E33A11E340E0EC /* ShimmeringTextView.swift */; };
 		F0D7AD73A16BF39FFB79CE65 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 5AAEB109134E4C3F8B5C8FEE /* Markdown */; };
@@ -74,7 +74,6 @@
 		188D5414EA1649FFF4AD98E1 /* katex.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = katex.min.css; sourceTree = "<group>"; };
 		1CDE9AD022289C31BFCD051F /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		2018976B5E6911702F6CB59B /* AuthStatusDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStatusDTO.swift; sourceTree = "<group>"; };
-		20EA4CC12FD5C2FC009AC3DA /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		222210A5E0B24D676382E69F /* ModelsListDTO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsListDTO.swift; sourceTree = "<group>"; };
 		23167A7C85914961F127AC4D /* ChatHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHeaderView.swift; sourceTree = "<group>"; };
 		248AA9032222211E432C2B0B /* ClarifyCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClarifyCardView.swift; sourceTree = "<group>"; };
@@ -98,6 +97,7 @@
 		614143EAF3CE5A1883160BD8 /* HermesRequestFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesRequestFactory.swift; sourceTree = "<group>"; };
 		6211D3ECF35942CC7F9C9AF5 /* StreamingCursorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingCursorView.swift; sourceTree = "<group>"; };
 		636B1EB37CBA526E5732D3D8 /* HermesSSEParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSSEParser.swift; sourceTree = "<group>"; };
+		698B110C121A8CB968D49779 /* SessionShimmerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionShimmerView.swift; sourceTree = "<group>"; };
 		6B6C469A4AAEB3291B112D7D /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		746BB3A899E33A11E340E0EC /* ShimmeringTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShimmeringTextView.swift; sourceTree = "<group>"; };
 		77E53EF01EE36EB81A1352A4 /* LiveToolCallingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveToolCallingView.swift; sourceTree = "<group>"; };
@@ -107,7 +107,7 @@
 		9B2FE1B29AED0713EC8B4974 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
 		9C1368A9C2621F550067324F /* highlight-common.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "highlight-common.min.js"; sourceTree = "<group>"; };
 		A5771FA91C5C424013A66763 /* highlight-core.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "highlight-core.min.js"; sourceTree = "<group>"; };
-		B08D229A9887818DB899F22B /* HermesPocket.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; name = HermesPocket.app; path = "Hermes Pocket.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B08D229A9887818DB899F22B /* HermesPocket.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = HermesPocket.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6CF9C8E1CA43E3B063465AD /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		B744185124BD9FD3FBD289BD /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		C038EDD2EF29F8C521B3C8D8 /* HermesError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesError.swift; sourceTree = "<group>"; };
@@ -200,7 +200,6 @@
 		5D1C2675FF59BC4ED7DF5F7C = {
 			isa = PBXGroup;
 			children = (
-				20EA4CC12FD5C2FC009AC3DA /* AppIcon.icon */,
 				76B27FAACA0F9DB52AD60D9F /* HermesPocket */,
 				085B2EA3898474A23CA83A28 /* Products */,
 			);
@@ -271,6 +270,7 @@
 			children = (
 				05ECA5BDC135AF31EC604E9C /* GlassCircleButton.swift */,
 				0BE4F21D13C32897093C8746 /* LiquidGlass.swift */,
+				698B110C121A8CB968D49779 /* SessionShimmerView.swift */,
 				746BB3A899E33A11E340E0EC /* ShimmeringTextView.swift */,
 				6211D3ECF35942CC7F9C9AF5 /* StreamingCursorView.swift */,
 				5187F3879E6DEE021A7924ED /* StreamingDotsView.swift */,
@@ -456,7 +456,6 @@
 				5038218EA7F2BF283B234379 /* katex.min.js in Resources */,
 				19534E8EC07E6D5AE6CDCFB5 /* markdown-it.min.js in Resources */,
 				28ED5D92C616DA0F43FD07C1 /* mermaid.min.js in Resources */,
-				20EA4CC22FD5C2FC009AC3DA /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -501,6 +500,7 @@
 				D321B39761AD5E90BD7495D8 /* SessionDTO.swift in Sources */,
 				AF9936EC15A7C2A4C1F89DD8 /* SessionListView.swift in Sources */,
 				10BE5BF15CDF02A9D7A52CEB /* SessionRowView.swift in Sources */,
+				EC0F83F95E9522C77813A3A0 /* SessionShimmerView.swift in Sources */,
 				145ED82868835D9195EDE24B /* SessionStore.swift in Sources */,
 				914C03CCD588CC634D75DF66 /* SettingsView.swift in Sources */,
 				EEE6E2C6C94D72F13A8B7E89 /* ShimmeringTextView.swift in Sources */,
