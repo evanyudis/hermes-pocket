@@ -83,11 +83,18 @@ private struct AttachmentPreview: View {
     let attachment: AttachmentDTO
     let palette: AttachmentGradientPalette
 
+    @State private var remoteImage: UIImage? = nil
+
+    private var localFileExists: Bool {
+        FileManager.default.fileExists(atPath: attachment.path)
+    }
+
     var body: some View {
         let cornerRadius: CGFloat = 8
 
         Group {
-            if attachmentIsImage(attachment) {
+            if attachmentIsImage(attachment) && localFileExists {
+                // Image that exists locally — show preview
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(Color.black.opacity(0.10))
                     .overlay {
@@ -99,9 +106,20 @@ private struct AttachmentPreview: View {
                             FileThumbnailView(url: URL(fileURLWithPath: attachment.path))
                         }
                     }
+            } else if attachmentIsImage(attachment), let remoteImage {
+                // Image downloaded from server
+                Image(uiImage: remoteImage)
+                    .resizable()
+                    .scaledToFill()
             } else {
+                // Non-image file, or image not available locally — show format icon
+                let fill: AnyShapeStyle = if case .other = attachmentFileFormatKind(for: attachment) {
+                    AnyShapeStyle(Color.white.opacity(0.10))
+                } else {
+                    AnyShapeStyle(attachmentFileFormatGradient(for: attachment, palette: palette))
+                }
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(attachmentFileFormatGradient(for: attachment, palette: palette))
+                    .fill(fill)
                     .overlay(
                         Image(systemName: attachmentFileFormatIcon(for: attachment))
                             .font(.system(size: 13, weight: .semibold))
@@ -111,6 +129,68 @@ private struct AttachmentPreview: View {
         }
         .frame(width: 38, height: 38)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .task {
+            // If image not available locally, try downloading from server
+            if attachmentIsImage(attachment) && !localFileExists && remoteImage == nil {
+                await downloadRemoteImage()
+            }
+        }
+    }
+
+    private func downloadRemoteImage() async {
+        // Try to construct a valid server URL from the attachment path.
+        // Server-side paths typically start with "/" and reference files
+        // within the workspace. Try multiple URL patterns.
+        let path = attachment.path
+        guard path.hasPrefix("/") else { return }
+
+        // Build candidate URLs from the server base URL
+        let candidates = HermesFileURLBuilder.candidateURLs(for: path)
+        for url in candidates {
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let image = UIImage(data: data) {
+                    await MainActor.run { self.remoteImage = image }
+                    return
+                }
+            } catch {
+                continue
+            }
+        }
+    }
+}
+
+/// Constructs candidate server URLs for downloading attached files.
+private enum HermesFileURLBuilder {
+    static func candidateURLs(for path: String) -> [URL] {
+        // Try to get base URL from the current connection store
+        let baseURLString = CredentialStore().loadBaseURL()
+        guard let baseURL = URL(string: baseURLString), !baseURLString.isEmpty else {
+            return []
+        }
+
+        var candidates: [URL] = []
+
+        // Pattern 1: {baseURL}/api/session/file?path={path}
+        if var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) {
+            components.path = "/api/session/file"
+            components.queryItems = [URLQueryItem(name: "path", value: path)]
+            if let url = components.url { candidates.append(url) }
+        }
+
+        // Pattern 2: {baseURL}/uploads/{filename}
+        let filename = URL(fileURLWithPath: path).lastPathComponent
+        if var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) {
+            components.path = "/uploads/\(filename)"
+            if let url = components.url { candidates.append(url) }
+        }
+
+        // Pattern 3: Raw path if it's an absolute URL
+        if path.hasPrefix("http"), let url = URL(string: path) {
+            candidates.append(url)
+        }
+
+        return candidates
     }
 }
 
@@ -191,10 +271,11 @@ private func attachmentFileFormatIcon(for attachment: AttachmentDTO) -> String {
 }
 
 private func attachmentFileFormatGradient(for attachment: AttachmentDTO, palette: AttachmentGradientPalette) -> LinearGradient {
+    let kind = attachmentFileFormatKind(for: attachment)
     switch palette {
     case .muted:
         let base: Color
-        switch attachmentFileFormatKind(for: attachment) {
+        switch kind {
         case .pdf:
             base = Color(hex: "490908")
         case .text:
@@ -213,7 +294,7 @@ private func attachmentFileFormatGradient(for attachment: AttachmentDTO, palette
             endPoint: .bottomTrailing
         )
     case .vibrant:
-        switch attachmentFileFormatKind(for: attachment) {
+        switch kind {
         case .pdf:
             return LinearGradient(colors: [Color(hex: "FF6B6B"), Color(hex: "C92A2A")], startPoint: .topLeading, endPoint: .bottomTrailing)
         case .sheet:

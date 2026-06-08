@@ -17,24 +17,55 @@ struct ChatMarkdownView: View {
                         CodeBlockView(configuration: config)
                     }
                     .textSelection(.enabled)
+                
+                if isStreaming {
+                    StreamingCursorView()
+                        .padding(.leading, 2)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Normalize markdown so MarkdownUI detects code blocks reliably.
+    /// Prepares markdown text for rendering.
     /// - Normalizes line endings
-    /// - Adds blank line before ``` fences (required by MarkdownUI for detection)
+    /// - Strips tool result tags to prevent raw JSON from leaking into markdown
+    ///   (happens when ToolResultParser didn't extract them, e.g. unknown source)
     private func processed(_ src: String) -> String {
         var t = src
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
-        // Add blank line before ``` if the preceding char is not already a newline
-        if let rx = try? NSRegularExpression(pattern: "(?m)([^\\n])(\\n```)") {
-            let range = NSRange(location: 0, length: t.utf16.count)
-            t = rx.stringByReplacingMatches(in: t, range: range, withTemplate: "$1\n\n$2")
-        }
+        
+        // Always strip untrusted_tool_result blocks — they should be rendered
+        // as cards via toolResultSegmentView, not as raw text in markdown.
+        // During streaming the tags may be incomplete; even when complete,
+        // unknown-source tool results leak through since hasToolResults only
+        // checks for .webSearch.
+        t = Self.stripToolResultTags(t)
+        
+        // Strip untrusted_tool_call blocks — they are shown via the live
+        // tool calling UI (LiveToolCallingView), not as raw markdown.
+        t = Self.stripToolCallTags(t)
+        
         return t
+    }
+    
+    /// Removes <untrusted_tool_result> blocks (complete or incomplete) from text.
+    /// Prevents raw JSON like {"total_count":0} from showing as plain text.
+    private static func stripToolResultTags(_ text: String) -> String {
+        let pattern = "<untrusted_tool_result[^>]*>[\\s\\S]*?(?:</untrusted_tool_result>|$)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(location: 0, length: text.utf16.count)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+    }
+
+    /// Removes <untrusted_tool_call> blocks (complete or incomplete) from text.
+    /// Tool calls are rendered via LiveToolCallingView, not as raw markdown.
+    private static func stripToolCallTags(_ text: String) -> String {
+        let pattern = "<untrusted_tool_call[^>]*>[\\s\\S]*?(?:</untrusted_tool_call>|$)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(location: 0, length: text.utf16.count)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
     }
 }
 

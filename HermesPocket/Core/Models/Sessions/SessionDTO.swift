@@ -132,7 +132,8 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
     var displayText: String {
         switch content {
         case .text(let text):
-            return Self.stripThinkingContent(text)
+            let stripped = Self.stripThinkingContent(text)
+            return Self.stripAttachmentPaths(stripped)
         case .unsupported:
             return "Unsupported message payload"
         }
@@ -164,6 +165,17 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
         }
 
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Removes the "[Attached files: ...]" appendix that the app injects into
+    /// the API message text (for the model's context). When the session reloads
+    /// from the server, this text leaks into the user bubble display.
+    private static func stripAttachmentPaths(_ text: String) -> String {
+        let pattern = #"\n?\[Attached files: [^\]]+\]"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let nsRange = NSRange(text.startIndex..., in: text)
+        return regex.stringByReplacingMatches(in: text, options: [], range: nsRange, withTemplate: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private enum CodingKeys: String, CodingKey {

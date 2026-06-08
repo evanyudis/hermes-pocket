@@ -508,7 +508,10 @@ final class AppState {
                 logStreamDebug("Finalized \(stepsToFinalize.count) tool steps")
             }
             resetPromptState()
-            applySession(payload.session)
+            // Update session metadata WITHOUT replacing accumulated messages.
+            // This prevents the sudden "reformat" stutter from view identity changes
+            // when the server replaces the streaming-accumulated message with a new UUID.
+            updateSessionAfterDone(payload.session)
         case .appError(let payload):
             logStreamError("SSE apperror streamID=\(streamID) label=\(payload.label ?? "") message=\(payload.message ?? "")")
             chat.isAwaitingAssistantStart = false
@@ -636,6 +639,38 @@ final class AppState {
             guard currentSessionID == sessionID else { return }
             chat.lastError = readableError(error)
         }
+    }
+
+    /// Updates session metadata from a `.done` event without replacing
+    /// locally accumulated messages. Prevents the "reformat stutter"
+    /// when the server version of the message has a different UUID.
+    private func updateSessionAfterDone(_ session: SessionDTO) {
+        currentSessionID = session.sessionId
+        if !session.title.isEmpty {
+            chat.sessionTitle = session.title
+        }
+        chat.sessionModel = session.model
+        chat.sessionProfile = session.profile
+        chat.sessionUpdatedAt = session.updatedAt ?? session.lastMessageAt ?? session.pendingStartedAt
+        // Preserve locally accumulated messages — don't call mergeMessages
+        chat.activeStreamID = session.activeStreamId
+        chat.isStreaming = false
+        chat.isAwaitingAssistantStart = false
+        chat.isLoading = false
+        // Use server's toolCalls as authoritative source
+        if let toolCalls = session.toolCalls {
+            completedToolSteps = toolCalls.compactMap { tc in
+                guard let name = tc.name else { return nil }
+                let status: ToolCallStep.Status = tc.isError == true ? .error : .complete
+                return ToolCallStep(
+                    name: name,
+                    preview: tc.preview,
+                    args: tc.args ?? [:],
+                    status: status
+                )
+            }
+        }
+        upsertSessionSummary(from: session)
     }
 
     private func applySession(_ session: SessionDTO) {

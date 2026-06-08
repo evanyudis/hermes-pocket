@@ -21,6 +21,76 @@ struct AttachmentDTO: Codable, Equatable {
     let name: String
     let path: String
     let mime: String
+
+    init(name: String, path: String, mime: String) {
+        self.name = name
+        self.path = path
+        self.mime = mime
+    }
+
+    init(from decoder: Decoder) throws {
+        // The server may send attachments as either:
+        //   a) a JSON object: {"name": "...", "path": "...", "mime": "..."}
+        //   b) a plain string: "/path/to/file.pdf"
+        // Handle both to avoid decoding failures.
+        if let singleValue = try? decoder.singleValueContainer(),
+           let path = try? singleValue.decode(String.self) {
+            self.path = path
+            let url = URL(fileURLWithPath: path)
+            self.name = url.lastPathComponent
+            let ext = url.pathExtension.lowercased()
+            if !ext.isEmpty {
+                // Map common extensions to MIME types
+                let mimeMap: [String: String] = [
+                    "pdf": "application/pdf",
+                    "png": "image/png",
+                    "jpg": "image/jpeg",
+                    "jpeg": "image/jpeg",
+                    "gif": "image/gif",
+                    "webp": "image/webp",
+                    "svg": "image/svg+xml",
+                    "txt": "text/plain",
+                    "json": "application/json",
+                    "js": "application/javascript",
+                    "ts": "application/typescript",
+                    "tsx": "text/typescript",
+                    "jsx": "text/jsx",
+                    "swift": "text/swift",
+                    "py": "text/x-python",
+                    "md": "text/markdown",
+                    "html": "text/html",
+                    "css": "text/css",
+                    "xml": "application/xml",
+                    "yaml": "text/yaml",
+                    "yml": "text/yaml",
+                    "zip": "application/zip",
+                    "tar": "application/x-tar",
+                    "gz": "application/gzip"
+                ]
+                self.mime = mimeMap[ext.lowercased()] ?? "application/octet-stream"
+            } else {
+                self.mime = "application/octet-stream"
+            }
+            return
+        }
+        // Object format: decode keys directly (handles both camelCase and snake_case
+        // via the global decoder's convertFromSnakeCase strategy)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.name = try container.decode(String.self, forKey: .name)
+        self.path = try container.decode(String.self, forKey: .path)
+        self.mime = try container.decodeIfPresent(String.self, forKey: .mime) ?? "application/octet-stream"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encode(mime, forKey: .mime)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name, path, mime
+    }
 }
 
 struct UploadedAttachmentDTO: Decodable, Equatable {
