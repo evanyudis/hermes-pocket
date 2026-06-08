@@ -114,6 +114,62 @@ final class AppState {
         }
     }
 
+    /// Combines connection setup and login into a single step.
+    /// Creates the API client, checks auth status, and logs in if needed.
+    func connectAndLogin(password: String) async {
+        connection.lastError = nil
+        auth.lastError = nil
+
+        guard let baseURL = connection.baseURL else {
+            connection.lastError = "Enter a valid http(s) backend URL."
+            route = .connection
+            return
+        }
+
+        connection.isLoading = true
+        credentialStore.saveBaseURL(connection.trimmedBaseURLString)
+        apiClient = HermesAPIClient(baseURL: baseURL)
+
+        defer { connection.isLoading = false }
+
+        do {
+            let client = try requireAPIClient()
+            let status = try await client.authStatus()
+            auth.authEnabled = status.authEnabled
+
+            if status.loggedIn || !status.authEnabled {
+                // Already logged in or auth not needed
+                auth.isLoggedIn = true
+                if let baseURL = connection.baseURL {
+                    credentialStore.saveCookies(HTTPCookieStorage.shared.cookies(for: baseURL) ?? [])
+                }
+                await fetchModels()
+                await autoEnterChat()
+                return
+            }
+
+            // Auth is required - login with password
+            let pw = password.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !pw.isEmpty else {
+                auth.lastError = "Password is required."
+                route = .connection
+                return
+            }
+
+            try await client.login(password: pw)
+            if let baseURL = connection.baseURL {
+                credentialStore.saveCookies(HTTPCookieStorage.shared.cookies(for: baseURL) ?? [])
+            }
+            auth.isLoggedIn = true
+            await fetchModels()
+            await autoEnterChat()
+        } catch {
+            connection.lastError = readableError(error)
+            auth.lastError = readableError(error)
+            route = .connection
+        }
+    }
+
     func refreshSessions() async {
         sessions.lastError = nil
         sessions.isLoading = true
@@ -215,7 +271,7 @@ final class AppState {
             activeProvider = payload.activeProvider
             serverDefaultModel = payload.defaultModel
         } catch {
-            // Silently fail — models are non-critical for core UX
+            // Silently fail - models are non-critical for core UX
         }
     }
 
@@ -242,11 +298,14 @@ final class AppState {
             async let clarifyEnvelope = client.fetchPendingClarify(sessionID: sessionID)
 
             let (payload, approval, clarify) = try await (sessionPayload, approvalEnvelope, clarifyEnvelope)
+            // Guard against stale response from rapid session switching
+            guard currentSessionID == sessionID else { return }
             applySession(payload.session)
             chat.isLoading = false
             chat.pendingApproval = approval.pending
             chat.pendingApprovalCount = approval.pending == nil ? 0 : max(approval.pendingCount ?? 1, 1)
             chat.pendingClarify = clarify.pending
+            chat.pendingClarifyCount = clarify.pending == nil ? 0 : 1
             if clarify.pending == nil {
                 chat.clarifyResponseDraft = ""
             }
@@ -254,6 +313,7 @@ final class AppState {
                 await reattachStreamIfNeeded(streamID: activeStreamId, sessionID: payload.session.sessionId)
             }
         } catch {
+            guard currentSessionID == sessionID else { return }
             chat.isLoading = false
             chat.lastError = readableError(error)
         }
@@ -280,7 +340,7 @@ final class AppState {
         do {
             let client = try requireAPIClient()
             let sessionID = try await ensureSessionID()
-            
+
             // Upload files to server first
             var uploadedAttachments: [AttachmentDTO] = []
             for attachment in stagedAttachments {
@@ -407,6 +467,7 @@ final class AppState {
             }
             chat.messages.append(MessageDTO(role: "user", content: .text(responseText), timestamp: Date().timeIntervalSince1970))
             chat.pendingClarify = nil
+            chat.pendingClarifyCount = 0
             chat.clarifyResponseDraft = ""
             chat.lastError = nil
             await refreshPendingPrompts(sessionID: sessionID)
@@ -531,7 +592,7 @@ final class AppState {
         case .appError(let payload):
             logStreamError("SSE apperror streamID=\(streamID) label=\(payload.label ?? "") message=\(payload.message ?? "")")
             chat.isAwaitingAssistantStart = false
-            chat.lastError = [payload.label, payload.message, payload.hint].compactMap { $0 }.joined(separator: " — ")
+            chat.lastError = [payload.label, payload.message, payload.hint].compactMap { $0 }.joined(separator: " - ")
         case .cancel:
             logStreamDebug("SSE cancel streamID=\(streamID)")
             chat.isAwaitingAssistantStart = false
@@ -648,6 +709,7 @@ final class AppState {
             chat.pendingApproval = approval.pending
             chat.pendingApprovalCount = approval.pending == nil ? 0 : max(approval.pendingCount ?? 1, 1)
             chat.pendingClarify = clarify.pending
+            chat.pendingClarifyCount = clarify.pending == nil ? 0 : 1
             if clarify.pending == nil {
                 chat.clarifyResponseDraft = ""
             }
@@ -668,7 +730,7 @@ final class AppState {
         chat.sessionModel = session.model
         chat.sessionProfile = session.profile
         chat.sessionUpdatedAt = session.updatedAt ?? session.lastMessageAt ?? session.pendingStartedAt
-        // Preserve locally accumulated messages — don't call mergeMessages
+        // Preserve locally accumulated messages - don't call mergeMessages
         chat.activeStreamID = session.activeStreamId
         chat.isStreaming = false
         chat.isAwaitingAssistantStart = false
@@ -695,17 +757,17 @@ final class AppState {
         chat.sessionModel = session.model
         chat.sessionProfile = session.profile
         chat.sessionUpdatedAt = session.updatedAt ?? session.lastMessageAt ?? session.pendingStartedAt
-        
+
         // Merge server messages with local messages to preserve local IDs during streaming transition.
         // This prevents the "stutter" when the server message replaces the locally accumulated message.
         chat.messages = mergeMessages(local: chat.messages, server: session.messages)
-        
+
         chat.activeStreamID = session.activeStreamId
         chat.isStreaming = session.activeStreamId != nil
         chat.isAwaitingAssistantStart = false
         chat.isLoading = false
         // Populate completedToolSteps from session tool_calls.
-        // Only update when server provides data — don't wipe steps set from pendingToolSteps.
+        // Only update when server provides data - don't wipe steps set from pendingToolSteps.
         if let toolCalls = session.toolCalls {
             completedToolSteps = toolCalls.compactMap { tc in
                 guard let name = tc.name else { return nil }
@@ -720,20 +782,20 @@ final class AppState {
         }
         upsertSessionSummary(from: session)
     }
-    
+
     /// Merges server messages with local messages, preserving local IDs when displayed content matches.
     /// This prevents SwiftUI from treating the transition as removing/adding rows.
     private func mergeMessages(local: [MessageDTO], server: [MessageDTO]) -> [MessageDTO] {
         guard !local.isEmpty else { return server }
-        
+
         var result: [MessageDTO] = []
         var localIndex = 0
-        
+
         for serverMsg in server {
             // Try to find a matching local message
             if localIndex < local.count {
                 let localMsg = local[localIndex]
-                
+
                 // Match by role and displayed content
                 if localMsg.role == serverMsg.role && localMsg.displayText == serverMsg.displayText {
                     // Keep the local message (preserves ID for smooth SwiftUI transition)
@@ -742,11 +804,22 @@ final class AppState {
                     continue
                 }
             }
-            
+
             // No match found, use server message
             result.append(serverMsg)
         }
-        
+
+        // Append any remaining local messages that weren't matched by server messages.
+        // This is critical for the send-first-message flow: sendChat() appends local
+        // user+assistant messages before calling ensureSessionID(), which calls
+        // applySession() → mergeMessages(). If the server returns 0 messages (new
+        // session), we must preserve the locally-added messages or the UI shows the
+        // empty state instead of the new chat bubble.
+        while localIndex < local.count {
+            result.append(local[localIndex])
+            localIndex += 1
+        }
+
         return result
     }
 
@@ -811,6 +884,7 @@ final class AppState {
         chat.pendingApproval = nil
         chat.pendingApprovalCount = 0
         chat.pendingClarify = nil
+        chat.pendingClarifyCount = 0
         chat.clarifyResponseDraft = ""
     }
 

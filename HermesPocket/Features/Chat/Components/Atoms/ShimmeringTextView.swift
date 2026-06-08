@@ -13,15 +13,15 @@ struct ShimmeringTextView: View {
 
                 Text(text)
                     .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
                     .tracking(-0.1)
                     .lineLimit(2)
                     .mask(
                         LinearGradient(
                             stops: [
-                                .init(color: .black.opacity(0.35), location: max(0, x - 0.25)),
+                                .init(color: .black.opacity(0.6), location: max(0, x - 0.3)),
                                 .init(color: .black, location: x),
-                                .init(color: .black.opacity(0.35), location: min(1, x + 0.25)),
+                                .init(color: .black.opacity(0.6), location: min(1, x + 0.3)),
                             ],
                             startPoint: .leading,
                             endPoint: .trailing

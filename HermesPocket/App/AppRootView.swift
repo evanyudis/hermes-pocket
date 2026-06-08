@@ -10,10 +10,9 @@ struct AppRootView: View {
         ZStack {
             NavigationStack {
                 switch appState.route {
-                case .connection:
-                    ConnectionSetupView()
-                case .login:
-                    LoginView()
+                case .connection, .login:
+                    AuthView()
+                        .navigationBarHidden(true)
                 case .sessions:
                     SessionListView()
                 case .chat:

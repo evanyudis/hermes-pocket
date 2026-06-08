@@ -46,6 +46,7 @@ final class ChatStore {
     var pendingApproval: ApprovalPendingDTO?
     var pendingApprovalCount = 0
     var pendingClarify: ClarifyPendingDTO?
+    var pendingClarifyCount = 0
     var clarifyResponseDraft = ""
     var activeToolCall: ActiveToolCall?
     var pendingToolSteps: [ToolCallStep] = []

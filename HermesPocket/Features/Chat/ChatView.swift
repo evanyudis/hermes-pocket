@@ -16,6 +16,7 @@ struct ChatView: View {
     @State private var showPhotoPicker = false
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var composerHeight: CGFloat = 74
+    @State private var clarifyCardHeight: CGFloat = 74
     @State private var isKeyboardVisible = false
     @State private var bottomSafeAreaInset: CGFloat = 0
     @FocusState private var isComposerFocused: Bool
@@ -45,18 +46,10 @@ struct ChatView: View {
                     .frame(width: 0, height: 0)
                     .onAppear { bottomSafeAreaInset = proxy.safeAreaInsets.bottom }
                 VStack(spacing: 0) {
-                // Approval / Clarify banners
+                // Approval banner
                 if let approval = appState.chat.pendingApproval {
                     ApprovalCardView(approval: approval, pendingApprovalCount: appState.chat.pendingApprovalCount) { choice in
                         Task { await appState.respondApproval(choice: choice) }
-                    }
-                }
-                if let clarify = appState.chat.pendingClarify {
-                    ClarifyCardView(clarify: clarify, draft: $appState.chat.clarifyResponseDraft) { choice in
-                        appState.chat.clarifyResponseDraft = choice
-                        Task { await appState.respondClarify() }
-                    } onReply: {
-                        Task { await appState.respondClarify() }
                     }
                 }
 
@@ -72,12 +65,7 @@ struct ChatView: View {
                     }
                     Spacer()
                 } else if appState.chat.messages.isEmpty {
-                    Spacer()
-                    ContentUnavailableView(
-                        "No Messages Yet",
-                        systemImage: "bubble.left.and.text.bubble.right"
-                    )
-                    Spacer()
+                    ChatEmptyView(isKeyboardVisible: isKeyboardVisible)
                 } else {
                     ScrollViewReader { proxy in
                         List(Array(appState.chat.messages.enumerated()), id: \.element.id) { index, message in
@@ -150,17 +138,22 @@ struct ChatView: View {
                     isComposerFocused = false
                 }
                 .safeAreaPadding(.top, 72)
-                .safeAreaPadding(.bottom, composerHeight + 32)
+                .safeAreaPadding(.bottom, bottomContentHeight + 32)
                 .offset(x: contentOffset)
                 .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
 
                 VStack {
                     Spacer()
-                    // ── Composer + fade backdrop (locked together) ──
+                    // ── Composer / Clarify Card (locked together) ──
                     ZStack(alignment: .bottom) {
                         bottomFadeBackdrop()
                             .allowsHitTesting(false)
-                        composer
+
+                        if let clarify = appState.chat.pendingClarify {
+                            clarifyCard(clarify: clarify)
+                        } else {
+                            composer
+                        }
                     }
                 }
                 .ignoresSafeArea(edges: isKeyboardVisible ? [] : .bottom)
@@ -263,6 +256,13 @@ struct ChatView: View {
 
 
 
+    private var bottomContentHeight: CGFloat {
+        if appState.chat.pendingClarify != nil {
+            return max(clarifyCardHeight, 74)
+        }
+        return composerHeight
+    }
+
     private func bottomFadeBackdrop() -> some View {
         ZStack(alignment: .bottom) {
             FadingBlurOverlay(fadesDownward: false)
@@ -278,7 +278,7 @@ struct ChatView: View {
                 endPoint: .bottom
             )
         }
-        .frame(height: composerHeight)
+        .frame(height: bottomContentHeight)
         .ignoresSafeArea()
     }
 
@@ -306,6 +306,29 @@ struct ChatView: View {
         }
     }
 
+    // MARK: - Clarify Card
+
+    private func clarifyCard(clarify: ClarifyPendingDTO) -> some View {
+        ClarifyCardView(
+            clarify: clarify,
+            clarifyCount: max(appState.chat.pendingClarifyCount, 1),
+            onChoice: { answer in
+                appState.chat.clarifyResponseDraft = answer
+                Task { await appState.respondClarify() }
+            },
+            onDismiss: {
+                appState.chat.pendingClarify = nil
+                appState.chat.pendingClarifyCount = 0
+                appState.chat.clarifyResponseDraft = ""
+                dismissKeyboard()
+                isComposerFocused = false
+            },
+            onHeightChange: { h in clarifyCardHeight = h }
+        )
+        .id(clarify.clarifyId)
+        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+    }
+
     // MARK: - Composer
 
     private var composer: some View {
@@ -315,7 +338,7 @@ struct ChatView: View {
             draft: $appState.chat.draft,
             stagedAttachments: $appState.chat.stagedAttachments,
             photoPickerItem: $photoPickerItem,
-            pendingClarify: appState.chat.pendingClarify,
+
             isStreaming: appState.chat.isStreaming,
             isLoading: appState.chat.isLoading,
             availableModels: appState.availableModels,

@@ -1,23 +1,29 @@
 import SwiftUI
 import MarkdownUI
 
+/// Minimum interval (seconds) between markdown re-renders during streaming.
+/// Prevents SwiftUI + MarkdownUI from stuttering on every token.
+private let streamThrottle: TimeInterval = 0.12
+
 struct ChatMarkdownView: View {
     let markdown: String
     let isStreaming: Bool
 
+    @State private var renderedText: String = ""
+    @State private var lastRenderTime: Date = .distantPast
+
     var body: some View {
-        let src = processed(markdown)
         Group {
-            if src.isEmpty {
+            if renderedText.isEmpty {
                 Text("_ _").foregroundStyle(.white.opacity(0.4))
             } else {
-                Markdown(src)
+                Markdown(renderedText)
                     .markdownTheme(.hermes)
                     .markdownBlockStyle(\.codeBlock) { config in
                         CodeBlockView(configuration: config)
                     }
                     .textSelection(.enabled)
-                
+
                 if isStreaming {
                     StreamingCursorView()
                         .padding(.leading, 2)
@@ -25,6 +31,28 @@ struct ChatMarkdownView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: markdown) { _, newValue in
+            if isStreaming {
+                throttleRender(text: newValue)
+            } else {
+                renderedText = processed(newValue)
+            }
+        }
+        .onAppear {
+            renderedText = processed(markdown)
+        }
+    }
+
+    // MARK: - Throttled render
+
+    /// Only re-renders the markdown body at most once per `streamThrottle` interval
+    /// while streaming. This prevents SwiftUI + MarkdownUI from stuttering on every
+    /// incoming token (which can arrive 20-50 times per second).
+    private func throttleRender(text: String) {
+        let now = Date()
+        guard now.timeIntervalSince(lastRenderTime) >= streamThrottle else { return }
+        lastRenderTime = now
+        renderedText = processed(text)
     }
 
     /// Prepares markdown text for rendering.
@@ -35,21 +63,21 @@ struct ChatMarkdownView: View {
         var t = src
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
-        
+
         // Always strip untrusted_tool_result blocks — they should be rendered
         // as cards via toolResultSegmentView, not as raw text in markdown.
         // During streaming the tags may be incomplete; even when complete,
         // unknown-source tool results leak through since hasToolResults only
         // checks for .webSearch.
         t = Self.stripToolResultTags(t)
-        
+
         // Strip untrusted_tool_call blocks — they are shown via the live
         // tool calling UI (LiveToolCallingView), not as raw markdown.
         t = Self.stripToolCallTags(t)
-        
+
         return t
     }
-    
+
     /// Removes <untrusted_tool_result> blocks (complete or incomplete) from text.
     /// Prevents raw JSON like {"total_count":0} from showing as plain text.
     private static func stripToolResultTags(_ text: String) -> String {

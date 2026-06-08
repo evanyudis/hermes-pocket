@@ -5,7 +5,6 @@ struct ChatComposerView: View {
     @Binding var draft: String
     @Binding var stagedAttachments: [AttachmentDTO]
     @Binding var photoPickerItem: PhotosPickerItem?
-    let pendingClarify: ClarifyPendingDTO?
     let isStreaming: Bool
     let isLoading: Bool
     let availableModels: [ModelGroupDTO]
@@ -36,7 +35,6 @@ struct ChatComposerView: View {
     private var canSend: Bool {
         if isStreaming { return true }
         if isLoading { return false }
-        if pendingClarify != nil { return false }
         return hasDraft || !stagedAttachments.isEmpty
     }
 
@@ -87,14 +85,13 @@ struct ChatComposerView: View {
             }
 
             TextField(
-                pendingClarify == nil ? "Send a message..." : "Respond above to continue",
+                "Send a message...",
                 text: $draft,
                 axis: .vertical
             )
             .font(.system(size: 18, weight: hasDraft ? .semibold : .regular))
             .foregroundStyle(.primary)
             .lineLimit(1...6)
-            .disabled(pendingClarify != nil)
             .focused(focus)
             .submitLabel(.send)
             .onSubmit {
