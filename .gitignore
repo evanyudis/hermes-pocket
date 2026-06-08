@@ -30,3 +30,7 @@ docs/.tmp/
 # Agent files
 .claude/
 CLAUDE.md
+
+# Knowledge graph cache
+graphify-out/
+.graphify_uncached.txt

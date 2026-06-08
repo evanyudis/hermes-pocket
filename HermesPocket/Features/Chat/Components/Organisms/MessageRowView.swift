@@ -101,7 +101,7 @@ struct MessageRowView: View {
                 if hasToolResults {
                     toolResultSegmentView
                 } else if hasText {
-                    ChatMarkdownView(
+                    ChatMarkdownWithLatexView(
                         markdown: message.displayText,
                         isStreaming: isStreaming
                     )
