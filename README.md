@@ -202,9 +202,46 @@ Once logged in, you can:
 2. Enter the tunnel URL: `http://localhost:8787`
 
    > **Wait — the iPhone can't reach localhost on your Mac directly.**
-   > You have two options:
+   > You have three options:
    >
-   > **Option A — Tailscale (recommended for iPhone access):**
+   > **Option A — Cloudflare Tunnel (recommended — persistent URL, no VPN):**
+   >
+   > [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (cloudflared) gives you a stable `https://*.trycloudflare.com` URL that works from anywhere — iPhone, Mac, whatever. No Tailscale install needed on the client.
+   >
+   > ```bash
+   > # On the server:
+   > # 1. Install cloudflared
+   > curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+   > echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+   > sudo apt update && sudo apt install -y cloudflared
+   >
+   > # 2. Start a quick tunnel (no Cloudflare account needed)
+   > cloudflared tunnel --url http://127.0.0.1:8787
+   >```
+   >
+   > cloudflared prints a URL like:
+   > ```
+   > https://random-name-here.trycloudflare.com
+   > ```
+   >
+   > In Hermes Pocket, enter that full `https://` URL. That's it.
+   >
+   > **For a permanent URL** (requires a Cloudflare account + domain):
+   > ```bash
+   > cloudflared tunnel login
+   > cloudflared tunnel create hermes-webui
+   > cloudflared tunnel route dns hermes-webui tunnel.yourdomain.com
+   > cloudflared tunnel run --url http://127.0.0.1:8787 hermes-webui
+   > ```
+   > Then point DNS: `tunnel.yourdomain.com` → CNAME → `<tunnel-id>.cfargotunnel.com`
+   >
+   > > **Note:** When using cloudflared, set `HERMES_WEBUI_CSP_CONNECT_EXTRA` to
+   > > allow the Cloudflare origin to reach your server:
+   > > ```bash
+   > > HERMES_WEBUI_CSP_CONNECT_EXTRA="https://*.trycloudflare.com" ./ctl.sh start
+   > > ```
+   >
+   > **Option B — Tailscale (recommended for LAN/WireGuard):**
    >
    > Install [Tailscale](https://tailscale.com/download) on both your server
    > and your iPhone. Then skip the SSH tunnel and point the server at all
@@ -224,7 +261,7 @@ Once logged in, you can:
    >
    > Traffic is encrypted end-to-end by WireGuard. No port forwarding needed.
    >
-   > **Option B — SSH tunnel to a Mac, then share via Tailscale/LAN:**
+   > **Option C — SSH tunnel to a Mac, then share via Tailscale/LAN:**
    >
    > If your Mac is always on, run the SSH tunnel on the Mac, then use
    > Tailscale or your LAN IP to reach the Mac's localhost:8787 from the iPhone.
@@ -237,28 +274,28 @@ Once logged in, you can:
 ## Architecture diagram
 
 ```
-                    ┌─────────────────────────────────────────┐
-                    │          Remote Server                  │
-                    │                                         │
-                    │   ┌──────────────┐   ┌──────────────┐  │
-                    │   │ hermes-agent │◄──│ hermes-webui │  │
-                    │   │  (Python)    │   │  :8787       │  │
-                    │   └──────────────┘   └──────┬───────┘  │
-                    │                             │          │
-                    │                    127.0.0.1:8787       │
-                    └─────────────────────────────┼──────────┘
+                    ┌─────────────────────────────────────────────┐
+                    │              Remote Server                  │
+                    │                                             │
+                    │   ┌──────────────┐   ┌──────────────┐      │
+                    │   │ hermes-agent │◄──│ hermes-webui │      │
+                    │   │  (Python)    │   │  :8787       │      │
+                    │   └──────────────┘   └──────┬───────┘      │
+                    │                             │              │
+                    │                    127.0.0.1:8787           │
+                    └─────────────────────────────┼──────────────┘
                                                   │
-                              ┌────────────────────┤
-                              │                    │
-                         SSH tunnel          Tailscale
-                              │                    │
-                    ┌─────────▼─────────┐  ┌──────▼──────────┐
-                    │   Your Mac        │  │  iPhone          │
-                    │   localhost:8787  │  │  tailscale:8787  │
-                    │                   │  │                  │
-                    │  Hermes Pocket    │  │  Hermes Pocket   │
-                    │  (Xcode simulator)│  │  (on device)     │
-                    └───────────────────┘  └─────────────────┘
+                    ┌─────────────────────────────┼─────────────────────────────┐
+                    │                             │                             │
+               SSH tunnel                    Tailscale                  cloudflared
+                    │                             │                             │
+          ┌─────────▼─────────┐        ┌──────────▼──────────┐       ┌────────▼────────┐
+          │   Your Mac        │        │  iPhone              │       │  iPhone / Mac    │
+          │   localhost:8787  │        │  tailscale:8787      │       │  *.trycloudflare │
+          │                   │        │                      │       │  .com:443        │
+          │  Hermes Pocket    │        │  Hermes Pocket       │       │  Hermes Pocket   │
+          │  (Xcode simulator)│        │  (on device)         │       │  (on device)     │
+          └───────────────────┘        └──────────────────────┘       └─────────────────┘
 ```
 
 ---
@@ -311,6 +348,35 @@ cd ~/hermes-webui
 HERMES_WEBUI_HOST=0.0.0.0 HERMES_WEBUI_PASSWORD=your-strong-password ./ctl.sh start
 ```
 
+### Cloudflare Tunnel (cloudflared)
+
+Quick tunnel (no account, temporary URL):
+
+```bash
+# Install cloudflared
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt update && sudo apt install -y cloudflared
+
+# Start tunnel — prints a https://*.trycloudflare.com URL
+cd ~/hermes-webui
+cloudflared tunnel --url http://127.0.0.1:8787
+```
+
+Permanent tunnel (Cloudflare account + domain):
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create hermes-webui
+cloudflared tunnel route dns hermes-webui tunnel.yourdomain.com
+cloudflared tunnel run --url http://127.0.0.1:8787 hermes-webui
+```
+
+> When using cloudflared, also set:
+> ```bash
+> HERMES_WEBUI_CSP_CONNECT_EXTRA="https://*.trycloudflare.com" ./ctl.sh start
+> ```
+
 ### Health check
 
 ```bash
@@ -326,7 +392,7 @@ curl -s http://127.0.0.1:8787/health | python3 -m json.tool
 | `bootstrap.py` can't find Python | Install Python 3.11+: `brew install python@3.12` (macOS) or `apt install python3.12` (Ubuntu) |
 | Server starts but chat doesn't work | Run `hermes model` and `hermes auth` in the venv to configure your provider |
 | SSH tunnel connects but browser shows nothing | Make sure the tunnel command is running and the server is up (`curl localhost:8787/health`) |
-| iPhone can't reach the server | Use Tailscale instead of SSH tunnel — see Step 6 Option A |
+| iPhone can't reach the server | Use cloudflared or Tailscale — see Step 6 Options A and B |
 | Password rejected on login | Check you're using the right password; reset via `HERMES_WEBUI_PASSWORD=new ./ctl.sh restart` |
 | Tunnel drops frequently | Add `ServerAliveInterval 60` to `~/.ssh/config` for your server |
 | `429 Too many attempts` | Wait 60 seconds, the rate limiter resets automatically |
@@ -395,7 +461,20 @@ Tailscale.
    ```
    Then open `http://localhost:8787` in their browser.
 
-   **For iPhone access (Tailscale — recommended):**
+   **For iPhone access — Option A: Cloudflare Tunnel (recommended, no VPN needed):**
+   ```bash
+   # Install cloudflared
+   curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+   echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+   sudo apt update && sudo apt install -y cloudflared
+
+   # Start quick tunnel — prints a https://*.trycloudflare.com URL
+   cloudflared tunnel --url http://127.0.0.1:8787
+   ```
+   The user opens that `https://` URL in their iPhone browser or Hermes Pocket.
+   No Tailscale install needed on the client.
+
+   **For iPhone access — Option B: Tailscale:**
    ```bash
    # Install Tailscale on the server
    curl -fsSL https://tailscale.com/install.sh | sh
