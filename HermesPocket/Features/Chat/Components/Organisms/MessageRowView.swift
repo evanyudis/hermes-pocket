@@ -130,7 +130,7 @@ struct MessageRowView: View {
         let visibleSegments = segments.filter { segment in
             switch segment {
             case .text(let t):
-                return !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                return !Self.stripToolMarkup(t).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             case .toolResult(let data):
                 if case .unknown = data { return false }
                 return true
@@ -144,12 +144,36 @@ struct MessageRowView: View {
         return ForEach(Array(visibleSegments.enumerated()), id: \.offset) { index, segment in
             switch segment {
             case .text(let t):
-                messageText(t.trimmingCharacters(in: .whitespacesAndNewlines))
+                messageText(Self.stripToolMarkup(t).trimmingCharacters(in: .whitespacesAndNewlines))
             case .toolResult(let data):
                 ToolResultCardView(data: data)
                     .padding(.top, index == 0 && !hasLeadingText ? 0 : 4)
             }
         }
+    }
+
+    // MARK: - Tool markup stripper
+
+    /// Strips <untrusted_tool_call> and incomplete <untrusted_tool_result> blocks
+    /// from text segments. Safety net for the mixed-content path where
+    /// ChatMarkdownView's strippers aren't active.
+    private static func stripToolMarkup(_ text: String) -> String {
+        var result = text
+        // Strip <untrusted_tool_call> blocks (complete or incomplete)
+        let callPattern = "<untrusted_tool_call[^>]*>[\\s\\S]*?(?:</untrusted_tool_call>|$)"
+        if let regex = try? NSRegularExpression(pattern: callPattern) {
+            let range = NSRange(location: 0, length: result.utf16.count)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+        }
+        // Strip incomplete <untrusted_tool_result> blocks (no closing tag yet during streaming)
+        // Complete blocks are already parsed by ToolResultParser, but incomplete ones
+        // leak as text and may contain raw JSON.
+        let incompleteResultPattern = "<untrusted_tool_result[^>]*>[\\s\\S]*?(?:</untrusted_tool_result>|$)"
+        if let regex = try? NSRegularExpression(pattern: incompleteResultPattern) {
+            let range = NSRange(location: 0, length: result.utf16.count)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "")
+        }
+        return result
     }
 
     // MARK: - Text renderer (plain text fallback)

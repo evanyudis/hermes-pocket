@@ -889,13 +889,29 @@ final class AppState {
 
     private func appendAssistantVisibleText(_ text: String) {
         guard !text.isEmpty else { return }
+        // Strip <untrusted_tool_call> blocks — they are redundant with
+        // SSE tool events rendered via LiveToolCallingView / ChainOfThoughtView.
+        // Keep <untrusted_tool_result> blocks intact (needed for card rendering).
+        let cleaned = Self.stripToolCallTags(text)
+        guard !cleaned.isEmpty else { return }
         if let lastIndex = chat.messages.lastIndex(where: { $0.role == "assistant" }) {
             let existing = chat.messages[lastIndex]
             let current = existing.displayText
-            chat.messages[lastIndex] = MessageDTO(id: existing.id, role: "assistant", content: .text(current + text), timestamp: Date().timeIntervalSince1970, attachments: existing.attachments)
+            chat.messages[lastIndex] = MessageDTO(id: existing.id, role: "assistant", content: .text(current + cleaned), timestamp: Date().timeIntervalSince1970, attachments: existing.attachments)
         } else {
-            chat.messages.append(MessageDTO(role: "assistant", content: .text(text), timestamp: Date().timeIntervalSince1970))
+            chat.messages.append(MessageDTO(role: "assistant", content: .text(cleaned), timestamp: Date().timeIntervalSince1970))
         }
+    }
+
+    // MARK: - Tool markup strippers
+
+    /// Removes <untrusted_tool_call> blocks (complete or incomplete) from text.
+    /// These are redundant — SSE tool events drive LiveToolCallingView and ChainOfThoughtView.
+    private static func stripToolCallTags(_ text: String) -> String {
+        let pattern = "<untrusted_tool_call[^>]*>[\\s\\S]*?(?:</untrusted_tool_call>|$)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return text }
+        let range = NSRange(location: 0, length: text.utf16.count)
+        return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
     }
 
     private func stopLocalStream(cancelTask: Bool = true) {
