@@ -26,3 +26,7 @@ docs/.tmp/
 
 # Database
 *.db
+
+# Agent files
+.claude/
+CLAUDE.md

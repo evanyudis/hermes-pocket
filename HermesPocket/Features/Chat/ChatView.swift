@@ -298,6 +298,9 @@ struct ChatView: View {
     }
 
     private func focusComposerSoon() {
+        // Only auto-focus keyboard for new chats (no real session yet).
+        // Existing sessions should not auto-open the keyboard.
+        guard appState.isNewChatQueued else { return }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(250))
             if !showSidebar {
@@ -369,9 +372,11 @@ struct ChatView: View {
                 appState.credentialStore.saveDefaultModelProvider(providerID)
             },
             onSend: {
+                // Dismiss keyboard immediately for instant feedback,
+                // before the message send network call starts.
+                dismissKeyboard()
                 Task {
                     await appState.sendChat()
-                    dismissKeyboard()
                 }
             },
             onStop: {
