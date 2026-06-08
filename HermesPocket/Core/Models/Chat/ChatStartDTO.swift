@@ -23,6 +23,14 @@ struct AttachmentDTO: Codable, Equatable {
     let mime: String
 }
 
+struct UploadedAttachmentDTO: Decodable, Equatable {
+    let filename: String
+    let path: String
+    let size: Int
+    let mime: String
+    let isImage: Bool?
+}
+
 struct ChatStartResponseDTO: Decodable, Equatable {
     let streamId: String?
     let sessionId: String?

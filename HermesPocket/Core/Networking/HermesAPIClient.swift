@@ -19,6 +19,7 @@ protocol HermesAPIClientProtocol: Sendable {
     func fetchPendingClarify(sessionID: String) async throws -> ClarifyPendingEnvelopeDTO
     func fetchModels() async throws -> ModelsListDTO
     func respondClarify(request: ClarifyRespondRequestDTO) async throws -> ClarifyRespondResponseDTO
+    func uploadFile(sessionID: String, fileURL: URL, mime: String) async throws -> UploadedAttachmentDTO
 }
 
 final class HermesAPIClient: HermesAPIClientProtocol, @unchecked Sendable {
@@ -209,6 +210,48 @@ final class HermesAPIClient: HermesAPIClientProtocol, @unchecked Sendable {
         let body = try encoder.encode(request)
         let urlRequest = try requestFactory.makeJSONRequest(path: "/api/clarify/respond", method: "POST", body: body)
         return try await perform(urlRequest, as: ClarifyRespondResponseDTO.self)
+    }
+
+    func uploadFile(sessionID: String, fileURL: URL, mime: String) async throws -> UploadedAttachmentDTO {
+        let boundary = "Boundary.\(UUID().uuidString)"
+        
+        guard var components = URLComponents(url: try requestFactory.makeJSONRequest(path: "/api/upload", method: "POST").url!, resolvingAgainstBaseURL: false) else {
+            throw HermesError.invalidURL
+        }
+        components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
+        guard let url = components.url else {
+            throw HermesError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        // Read file data
+        let fileData = try Data(contentsOf: fileURL)
+        let filename = fileURL.lastPathComponent
+        
+        // Build multipart body
+        var body = Data()
+        
+        // Add session_id field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"session_id\"\r\n\r\n".data(using: .utf8)!)
+        body.append("\(sessionID)\r\n".data(using: .utf8)!)
+        
+        // Add file field
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mime)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n".data(using: .utf8)!)
+        
+        // End boundary
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        request.httpBody = body
+        
+        return try await perform(request, as: UploadedAttachmentDTO.self)
     }
 
     private func perform<T: Decodable>(_ request: URLRequest, as type: T.Type) async throws -> T {

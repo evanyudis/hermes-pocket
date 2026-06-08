@@ -387,10 +387,15 @@ struct ChatView: View {
         for url in urls {
             let didAccess = url.startAccessingSecurityScopedResource()
             defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            // Copy to temp directory while security scope is active so sendChat() can read it later
+            let tempURL = FileManager.default.temporaryDirectory.appending(path: "hermes-file-\(UUID().uuidString).\(url.pathExtension)")
             let type = UTType(filenameExtension: url.pathExtension)
             let mime = type?.preferredMIMEType ?? "application/octet-stream"
+            if didAccess {
+                try? FileManager.default.copyItem(at: url, to: tempURL)
+            }
             withAnimation(easeOut) {
-                appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: url.path, mime: mime))
+                appState.chat.stagedAttachments.append(AttachmentDTO(name: url.lastPathComponent, path: tempURL.path, mime: mime))
             }
         }
     }

@@ -167,7 +167,7 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case role, content, timestamp
+        case role, content, timestamp, attachments
     }
 
     init(id: UUID = UUID(), role: String, content: MessageContentDTO, timestamp: Double?, attachments: [AttachmentDTO] = []) {
@@ -184,7 +184,7 @@ struct MessageDTO: Decodable, Equatable, Identifiable {
         role = try container.decodeIfPresent(String.self, forKey: .role) ?? "assistant"
         content = try container.decodeIfPresent(MessageContentDTO.self, forKey: .content) ?? .text("")
         timestamp = try container.decodeIfPresent(Double.self, forKey: .timestamp)
-        attachments = []
+        attachments = try container.decodeIfPresent([AttachmentDTO].self, forKey: .attachments) ?? []
     }
 }
 

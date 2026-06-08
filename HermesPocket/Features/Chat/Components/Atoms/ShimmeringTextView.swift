@@ -12,8 +12,8 @@ struct ShimmeringTextView: View {
                 let x = t.remainder(dividingBy: 2.8) / 2.8  // slow sweep ~2.8s
 
                 Text(text)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(Color(white: 0.58))
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(.secondary)
                     .tracking(-0.1)
                     .lineLimit(2)
                     .mask(

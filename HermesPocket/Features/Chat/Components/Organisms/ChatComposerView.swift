@@ -48,6 +48,23 @@ struct ChatComposerView: View {
             .label ?? defaultModel
     }
 
+    private var sendButtonLabel: some View {
+        let iconName = isStreaming ? "stop.fill" : "arrow.up"
+        // Cancel button (streaming): white bg, dark icon
+        // Send button: white bg when can send, muted when disabled
+        let iconColor: Color = isStreaming ? .black : (canSend ? .black : .gray.opacity(0.4))
+        
+        return Image(systemName: iconName)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(iconColor)
+            .frame(width: 38, height: 38)
+            .background(
+                Circle()
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+            )
+    }
+
     @State private var composerViewHeight: CGFloat = 74
 
     var body: some View {
@@ -116,10 +133,11 @@ struct ChatComposerView: View {
                     ForEach(availableModels, id: \.providerId) { group in
                         Section(group.provider ?? group.providerId ?? "Models") {
                             ForEach(group.models ?? []) { entry in
+                                let isSelected = defaultModel == entry.id
                                 Button {
                                     onSelectModel(group.providerId ?? group.provider ?? "", entry.id)
                                 } label: {
-                                    Label(entry.label ?? entry.id, systemImage: defaultModel == entry.id ? "checkmark" : "circle")
+                                    Label(entry.label ?? entry.id, systemImage: isSelected ? "checkmark" : "circle")
                                 }
                             }
                         }
@@ -149,15 +167,7 @@ struct ChatComposerView: View {
                         onSend()
                     }
                 } label: {
-                    Image(systemName: isStreaming ? "stop.fill" : "arrow.up")
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundStyle(canSend ? .white : .white.opacity(0.32))
-                        .frame(width: 38, height: 38)
-                        .background(
-                            Circle()
-                                .fill(canSend ? AnyShapeStyle(Color.accentColor.gradient) : AnyShapeStyle(.ultraThinMaterial))
-                                .environment(\.colorScheme, .dark)
-                        )
+                    sendButtonLabel
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSend)

@@ -245,33 +245,55 @@ final class AppState {
 
     func sendChat() async {
         let message = chat.draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        let attachments = chat.stagedAttachments
-        guard !message.isEmpty || !attachments.isEmpty else { return }
+        let stagedAttachments = chat.stagedAttachments
+        guard !message.isEmpty || !stagedAttachments.isEmpty else { return }
 
         chat.lastError = nil
         resetPromptState()
         chat.pendingToolSteps = []
         completedToolSteps = []
 
+        // Immediately show user message in UI for instant feedback
+        let now = Date().timeIntervalSince1970
+        chat.messages.append(MessageDTO(role: "user", content: .text(message), timestamp: now, attachments: stagedAttachments))
+        chat.messages.append(MessageDTO(role: "assistant", content: .text(""), timestamp: now))
+        chat.isAwaitingAssistantStart = true
+        chat.draft = ""
+        chat.stagedAttachments = []
+
         do {
             let client = try requireAPIClient()
             let sessionID = try await ensureSessionID()
-            let now = Date().timeIntervalSince1970
-            chat.messages.append(MessageDTO(role: "user", content: .text(message), timestamp: now, attachments: attachments))
-            chat.messages.append(MessageDTO(role: "assistant", content: .text(""), timestamp: now))
-            chat.isAwaitingAssistantStart = true
-            chat.draft = ""
-            chat.stagedAttachments = []
+            
+            // Upload files to server first
+            var uploadedAttachments: [AttachmentDTO] = []
+            for attachment in stagedAttachments {
+                let fileURL = URL(fileURLWithPath: attachment.path)
+                let uploaded = try await client.uploadFile(sessionID: sessionID, fileURL: fileURL, mime: attachment.mime)
+                uploadedAttachments.append(AttachmentDTO(name: uploaded.filename, path: uploaded.path, mime: uploaded.mime))
+            }
+
+            // Build API message with server paths (matching web UI behavior)
+            let uploadedNames = uploadedAttachments.map { $0.name }
+            let uploadedPaths = uploadedAttachments.map { $0.path }
+            let apiMessage: String
+            if !uploadedAttachments.isEmpty && message.isEmpty {
+                apiMessage = "I've uploaded \(uploadedAttachments.count) file(s): \(uploadedNames.joined(separator: ", "))"
+            } else if !uploadedAttachments.isEmpty {
+                apiMessage = "\(message)\n\n[Attached files: \(uploadedPaths.joined(separator: ", "))]"
+            } else {
+                apiMessage = message
+            }
 
             do {
                 let response = try await client.startChat(
                     request: ChatStartRequestDTO(
                         sessionId: sessionID,
-                        message: message,
+                        message: apiMessage,
                         workspace: nil,
                         model: defaultModel.isEmpty ? nil : defaultModel,
                         modelProvider: defaultModelProvider.isEmpty ? nil : defaultModelProvider,
-                        attachments: attachments,
+                        attachments: uploadedAttachments,
                         profile: "default"
                     )
                 )
