@@ -50,18 +50,19 @@ struct ChatComposerView: View {
 
     private var sendButtonLabel: some View {
         let iconName = isStreaming ? "stop.fill" : "arrow.up"
-        // Cancel button (streaming): white bg, dark icon
-        // Send button: white bg when can send, muted when disabled
-        let iconColor: Color = isStreaming ? .black : (canSend ? .black : .gray.opacity(0.4))
-        
+        let isDisabled = !isStreaming && !canSend
+        let iconColor: Color = isStreaming ? .black : (isDisabled ? .gray.opacity(0.4) : .black)
+        let bgColor: Color = isDisabled ? .white.opacity(0.35) : .white
+        let shadowOpacity: Double = isDisabled ? 0 : 0.15
+
         return Image(systemName: iconName)
             .font(.system(size: 17, weight: .bold))
             .foregroundStyle(iconColor)
             .frame(width: 38, height: 38)
             .background(
                 Circle()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                    .fill(bgColor)
+                    .shadow(color: .black.opacity(shadowOpacity), radius: 2, y: 1)
             )
     }
 
