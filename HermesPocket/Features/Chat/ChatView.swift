@@ -84,6 +84,8 @@ struct ChatView: View {
                         }
                         .listStyle(.plain)
                         .scrollContentBackground(.hidden)
+                        .scrollDismissesKeyboard(.immediately)
+                        .textSelection(.enabled)
                         .onAppear {
                             scrollToBottom(proxy: proxy, animated: false)
                         }
@@ -131,11 +133,6 @@ struct ChatView: View {
                         .background(.ultraThinMaterial)
                 }
 
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    dismissKeyboard()
-                    isComposerFocused = false
                 }
                 .safeAreaPadding(.top, 72)
                 .safeAreaPadding(.bottom, bottomContentHeight + 32)

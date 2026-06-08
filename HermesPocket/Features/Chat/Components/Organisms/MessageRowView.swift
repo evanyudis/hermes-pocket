@@ -120,6 +120,7 @@ struct MessageRowView: View {
                 }
             }
         }
+        .textSelection(.enabled)
     }
 
     // MARK: - Tool result segment view (fallback)

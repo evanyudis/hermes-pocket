@@ -36,6 +36,7 @@ struct ChatMarkdownWithLatexView: View {
                     }
                 }
             }
+            .textSelection(.enabled)
         }
     }
 
@@ -56,6 +57,7 @@ struct ChatMarkdownWithLatexView: View {
                     .stroke(.white.opacity(0.06), lineWidth: 1)
             )
             .markdownMargin(top: 6, bottom: 10)
+            .textSelection(.enabled)
     }
 
     // MARK: - Segment parsing
