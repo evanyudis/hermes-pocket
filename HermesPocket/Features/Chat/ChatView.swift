@@ -16,6 +16,8 @@ struct ChatView: View {
     @State private var showPhotoPicker = false
     @State private var photoPickerItem: PhotosPickerItem?
     @State private var composerHeight: CGFloat = 74
+    @State private var isKeyboardVisible = false
+    @State private var bottomSafeAreaInset: CGFloat = 0
     @FocusState private var isComposerFocused: Bool
 
     // ── Emil's custom ease-out curve ──
@@ -38,6 +40,10 @@ struct ChatView: View {
 
         GeometryReader { proxy in
             ZStack(alignment: .top) {
+                // Capture safe area inset
+                Color.clear
+                    .frame(width: 0, height: 0)
+                    .onAppear { bottomSafeAreaInset = proxy.safeAreaInsets.bottom }
                 VStack(spacing: 0) {
                 // Approval / Clarify banners
                 if let approval = appState.chat.pendingApproval {
@@ -82,7 +88,7 @@ struct ChatView: View {
                                 completedToolSteps: isLastAssistant ? appState.completedToolSteps : []
                             )
                             .id(message.id)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 4, trailing: 20))
                             .listRowSeparator(.hidden)
                         }
                         .listStyle(.plain)
@@ -141,16 +147,20 @@ struct ChatView: View {
                     isComposerFocused = false
                 }
                 .safeAreaPadding(.top, 72)
-                .safeAreaPadding(.bottom, composerHeight + 24)
+                .safeAreaPadding(.bottom, composerHeight + 32)
                 .offset(x: contentOffset)
                 .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
 
                 VStack {
                     Spacer()
-                    bottomFadeBackdrop(bottomInset: proxy.safeAreaInsets.bottom)
-                    // ── Floating liquid glass composer ──
-                    composer
+                    // ── Composer + fade backdrop (locked together) ──
+                    ZStack(alignment: .bottom) {
+                        bottomFadeBackdrop()
+                            .allowsHitTesting(false)
+                        composer
+                    }
                 }
+                .ignoresSafeArea(edges: isKeyboardVisible ? [] : .bottom)
                 .offset(x: contentOffset)
                 .animation(showSidebar ? easeOut : easeOutFast, value: contentOffset)
 
@@ -164,6 +174,16 @@ struct ChatView: View {
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 focusComposerSoon()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                withAnimation(.interactiveSpring()) {
+                    isKeyboardVisible = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                withAnimation(.interactiveSpring()) {
+                    isKeyboardVisible = false
+                }
             }
             .onChange(of: appState.currentSessionID) { _, _ in
                 focusComposerSoon()
@@ -238,23 +258,25 @@ struct ChatView: View {
         .ignoresSafeArea(edges: .top)
     }
 
-    private func bottomFadeBackdrop(bottomInset: CGFloat) -> some View {
+
+
+    private func bottomFadeBackdrop() -> some View {
         ZStack(alignment: .bottom) {
             FadingBlurOverlay(fadesDownward: false)
 
             LinearGradient(
                 colors: [
                     .clear,
-                    Color.black.opacity(0.26),
-                    Color.black.opacity(0.60),
-                    Color.black.opacity(0.85)
+                    Color.black.opacity(0.48),
+                    Color.black.opacity(0.76),
+                    Color.black.opacity(0.92)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
         }
-        .frame(height: bottomInset + 80)
-        .ignoresSafeArea(edges: .bottom)
+        .frame(height: composerHeight)
+        .ignoresSafeArea()
     }
 
     private func dismissKeyboard() {
@@ -297,6 +319,7 @@ struct ChatView: View {
             isFetchingModels: appState.isFetchingModels,
             defaultModel: appState.defaultModel,
             serverDefaultModel: appState.serverDefaultModel,
+            bottomSafeAreaInset: bottomSafeAreaInset,
             easeOut: easeOut,
             onAttachmentMenuTapCamera: {
                 showCamera = true
@@ -469,7 +492,7 @@ private struct CameraCaptureView: UIViewControllerRepresentable {
     }
 }
 
-private struct FadingBlurOverlay: UIViewRepresentable {
+struct FadingBlurOverlay: UIViewRepresentable {
     let fadesDownward: Bool
 
     init(fadesDownward: Bool = true) {

@@ -14,7 +14,7 @@ enum LiquidGlassPreset {
         case .control:
             return .clear.tint(.black.opacity(buttonFrostTint)).interactive()
         case .composer:
-            return .regular.tint(.black.opacity(0.028))
+            return .clear.tint(.black.opacity(0.01))
         case .panel:
             return .clear.tint(.black.opacity(0.014))
         case .banner:

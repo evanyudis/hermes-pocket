@@ -12,6 +12,7 @@ struct ChatComposerView: View {
     let isFetchingModels: Bool
     let defaultModel: String
     let serverDefaultModel: String?
+    let bottomSafeAreaInset: CGFloat
     let easeOut: Animation
     let onAttachmentMenuTapCamera: () -> Void
     let onAttachmentMenuTapPhotoLibrary: () -> Void
@@ -46,6 +47,8 @@ struct ChatComposerView: View {
             .first { $0.id == defaultModel }?
             .label ?? defaultModel
     }
+
+    @State private var composerViewHeight: CGFloat = 74
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -164,17 +167,19 @@ struct ChatComposerView: View {
         .padding(.top, isExpanded ? 14 : 12)
         .padding(.bottom, 12)
         .liquidGlass(RoundedRectangle(cornerRadius: 24, style: .continuous), preset: .composer)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 26)
+        .padding(.bottom, 20)
         .padding(.top, 0)
         .background(
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
                         onHeightChange(proxy.size.height)
+                        composerViewHeight = proxy.size.height
                     }
                     .onChange(of: proxy.size.height) { _, height in
                         onHeightChange(height)
+                        composerViewHeight = height
                     }
             }
         )
