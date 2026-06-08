@@ -82,8 +82,8 @@ struct ClarifyCardView: View {
                                     .foregroundStyle(.white)
                             }
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 11)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                         .background(
                             hasResponded && selectedAnswer == choice
                                 ? Color.accentColor
@@ -97,7 +97,7 @@ struct ClarifyCardView: View {
                     // Divider after each option (last divider sits before custom answer)
                     Divider()
                         .background(.white.opacity(0.1))
-                        .padding(.leading, 14)
+                        .padding(.leading, 16)
                 }
 
                 // Custom answer row — always present, looks like an option row
@@ -127,8 +127,8 @@ struct ClarifyCardView: View {
                     .buttonStyle(.plain)
                     .disabled(!canSendCustom)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
                 .background(
                     hasResponded && selectedAnswer == customAnswer.trimmingCharacters(in: .whitespacesAndNewlines) && !customAnswer.isEmpty
                         ? Color.accentColor
@@ -137,11 +137,11 @@ struct ClarifyCardView: View {
             }
             .liquidGlass(RoundedRectangle(cornerRadius: 16, style: .continuous), preset: .panel)
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 14)
         .liquidGlass(RoundedRectangle(cornerRadius: 24, style: .continuous), preset: .composer)
-        .padding(.horizontal, 26)
+        .padding(.horizontal, 10)
         .padding(.bottom, 20)
         .background(
             GeometryReader { proxy in

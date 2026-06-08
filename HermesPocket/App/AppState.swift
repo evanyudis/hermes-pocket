@@ -465,7 +465,6 @@ final class AppState {
                 chat.lastError = response.error ?? "Clarification response not accepted."
                 return
             }
-            chat.messages.append(MessageDTO(role: "user", content: .text(responseText), timestamp: Date().timeIntervalSince1970))
             chat.pendingClarify = nil
             chat.pendingClarifyCount = 0
             chat.clarifyResponseDraft = ""
