@@ -279,6 +279,7 @@ final class AppState {
         isNewChatQueued = false
         stopLocalStream()
         resetPromptState()
+        chat.messages = []
         currentSessionID = sessionID
         route = .chat
         chat.lastError = nil
@@ -686,6 +687,23 @@ final class AppState {
         }
 
         stopLocalStream(cancelTask: false)
+
+        // If timeout: silently reload instead of showing error.
+        // Backend still processing — next poll or user session switch picks it up.
+        if let urlError = error as? URLError, urlError.code == .timedOut {
+            logStreamDebug("SSE timeout streamID=\(streamID) — silently reloading session")
+            do {
+                let client = try requireAPIClient()
+                let payload = try await client.fetchSession(sessionID: sessionID, includeMessages: true, limit: nil)
+                applySession(payload.session)
+                await refreshPendingPrompts(sessionID: sessionID)
+                await refreshSessions()
+            } catch {
+                // Silently degrade — user can retry manually
+            }
+            return
+        }
+
         chat.lastError = readableError(error)
         do {
             let client = try requireAPIClient()

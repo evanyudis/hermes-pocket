@@ -18,8 +18,10 @@ final class HermesHTTPSession: @unchecked Sendable {
         streamConfiguration.waitsForConnectivity = true
         streamConfiguration.requestCachePolicy = .reloadIgnoringLocalCacheData
         streamConfiguration.urlCache = nil
-        streamConfiguration.timeoutIntervalForRequest = 300
-        streamConfiguration.timeoutIntervalForResource = 600
+        // SSE streams are long-lived — timeout effectively infinite.
+        // App-layer handles disconnection with auto-reconnect.
+        streamConfiguration.timeoutIntervalForRequest = TimeInterval(INT_MAX)
+        streamConfiguration.timeoutIntervalForResource = TimeInterval(INT_MAX)
 
         self.rest = URLSession(configuration: restConfiguration)
         self.stream = URLSession(configuration: streamConfiguration)

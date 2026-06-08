@@ -23,11 +23,6 @@ struct ChatMarkdownView: View {
                         CodeBlockView(configuration: config)
                     }
                     .textSelection(.enabled)
-
-                if isStreaming {
-                    StreamingCursorView()
-                        .padding(.leading, 2)
-                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

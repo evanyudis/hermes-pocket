@@ -27,8 +27,6 @@ struct MessageRowView: View {
 
                 content
                     .frame(maxWidth: 336, alignment: isUser ? .trailing : .leading)
-
-                if !isUser { Spacer(minLength: 28) }
             }
             .padding(.top, topSpacing)
             .padding(.bottom, 4)
