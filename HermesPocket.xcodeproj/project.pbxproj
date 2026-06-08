@@ -11,6 +11,7 @@
 		0F41748010DB20A89A6E2F9E /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CDE9AD022289C31BFCD051F /* AppRootView.swift */; };
 		10636F7FC3E601AEF069DB1C /* ChatHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23167A7C85914961F127AC4D /* ChatHeaderView.swift */; };
 		10BE5BF15CDF02A9D7A52CEB /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F074E8A1D002E5C0839A6F /* SessionRowView.swift */; };
+		1367A76C27FB90FD63E475FC /* ImagePopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86EAD5143168464628634A76 /* ImagePopupView.swift */; };
 		145ED82868835D9195EDE24B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6CF9C8E1CA43E3B063465AD /* SessionStore.swift */; };
 		183349FF3C23EC6EC34C3512 /* ClarifyCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248AA9032222211E432C2B0B /* ClarifyCardView.swift */; };
 		19534E8EC07E6D5AE6CDCFB5 /* markdown-it.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 090393EDC2B7F632DD5EA81D /* markdown-it.min.js */; };
@@ -34,6 +35,7 @@
 		88920F676F9BC84D76B1690E /* HermesHTTPSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B4D052F07A4859D21946B69 /* HermesHTTPSession.swift */; };
 		8A4D21EB5D8A61506DE26AAE /* SwiftDraw in Frameworks */ = {isa = PBXBuildFile; productRef = 558B4BE02E5B80AACA815299 /* SwiftDraw */; };
 		8A59D7C4A1B43C0446678AC4 /* katex.min.css in Resources */ = {isa = PBXBuildFile; fileRef = 188D5414EA1649FFF4AD98E1 /* katex.min.css */; };
+		90A0D63C2220004F43288820 /* MarkdownImageProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0494E08DC9A0B04819CBA1C /* MarkdownImageProvider.swift */; };
 		914C03CCD588CC634D75DF66 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F68F3E141FC44EF9095B0D45 /* SettingsView.swift */; };
 		9547BE9DB8F7216B52B0B0CC /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C542B56F32DADD13FBF6521 /* AuthStore.swift */; };
 		970489A71A2828948F64F67B /* AuthStatusDTO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2018976B5E6911702F6CB59B /* AuthStatusDTO.swift */; };
@@ -61,6 +63,7 @@
 		EEE6E2C6C94D72F13A8B7E89 /* ShimmeringTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746BB3A899E33A11E340E0EC /* ShimmeringTextView.swift */; };
 		F0D7AD73A16BF39FFB79CE65 /* Markdown in Frameworks */ = {isa = PBXBuildFile; productRef = 5AAEB109134E4C3F8B5C8FEE /* Markdown */; };
 		F37520AFA305A4811922BF72 /* ConnectionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B2FE1B29AED0713EC8B4974 /* ConnectionSetupView.swift */; };
+		F9D73654A03B9B37FE239C3F /* MermaidDiagramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EA77B8476CF1954AFCC853A /* MermaidDiagramView.swift */; };
 		FADB04D67B8590EDF54E8E64 /* AttachmentCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 383924EC54E39BBFA4E6B607 /* AttachmentCardView.swift */; };
 		FE2089D994CF449F8677439D /* StreamingDotsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5187F3879E6DEE021A7924ED /* StreamingDotsView.swift */; };
 		FE8266AF058145F2740DD3CA /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04CE38409DBCBDD9BA82506B /* AppState.swift */; };
@@ -107,6 +110,8 @@
 		7BF1D3CAE168895B7FC7BF7E /* mermaid.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = mermaid.min.js; sourceTree = "<group>"; };
 		80FA827F73732341A9B93C31 /* ChatEmptyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatEmptyView.swift; sourceTree = "<group>"; };
 		817CEC905C1FAFD7BAB2B713 /* HermesAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesAPIClient.swift; sourceTree = "<group>"; };
+		86EAD5143168464628634A76 /* ImagePopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePopupView.swift; sourceTree = "<group>"; };
+		8EA77B8476CF1954AFCC853A /* MermaidDiagramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MermaidDiagramView.swift; sourceTree = "<group>"; };
 		96221E81C179E86057D95ABD /* ToolPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolPresentation.swift; sourceTree = "<group>"; };
 		9B2FE1B29AED0713EC8B4974 /* ConnectionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSetupView.swift; sourceTree = "<group>"; };
 		9C1368A9C2621F550067324F /* highlight-common.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "highlight-common.min.js"; sourceTree = "<group>"; };
@@ -119,6 +124,7 @@
 		E6F074E8A1D002E5C0839A6F /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
 		E91B0CA0876D836DD2E21187 /* katex.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = katex.min.js; sourceTree = "<group>"; };
 		E9FEC9095051F4F1FC016FBF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F0494E08DC9A0B04819CBA1C /* MarkdownImageProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownImageProvider.swift; sourceTree = "<group>"; };
 		F43DD2E377D9FE908377D627 /* highlight-github-dark.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "highlight-github-dark.min.css"; sourceTree = "<group>"; };
 		F68F3E141FC44EF9095B0D45 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -377,6 +383,9 @@
 			children = (
 				383924EC54E39BBFA4E6B607 /* AttachmentCardView.swift */,
 				3E420488DDFC818EE74A9A6E /* ChatMarkdownView.swift */,
+				86EAD5143168464628634A76 /* ImagePopupView.swift */,
+				F0494E08DC9A0B04819CBA1C /* MarkdownImageProvider.swift */,
+				8EA77B8476CF1954AFCC853A /* MermaidDiagramView.swift */,
 				5F2A9FA36A48A504D2F3A4B5 /* ToolResultCardView.swift */,
 			);
 			path = Molecules;
@@ -500,9 +509,12 @@
 				97A5ACEF23CE8A9C8D7667DA /* HermesRequestFactory.swift in Sources */,
 				368FDC10D80B33A145968628 /* HermesSSEParser.swift in Sources */,
 				A8B29B9AA2E0624A418041DB /* HermesStreamEvent.swift in Sources */,
+				1367A76C27FB90FD63E475FC /* ImagePopupView.swift in Sources */,
 				878C4985139A10DFA43F9922 /* LiquidGlass.swift in Sources */,
 				505BBC053D0FDB8B8E7ED8B3 /* LiveToolCallingView.swift in Sources */,
 				974B1C96EAA9B80DFDA9FF05 /* LoginView.swift in Sources */,
+				90A0D63C2220004F43288820 /* MarkdownImageProvider.swift in Sources */,
+				F9D73654A03B9B37FE239C3F /* MermaidDiagramView.swift in Sources */,
 				BDD51DC5E34C8C7E615DC35B /* MessageRowView.swift in Sources */,
 				9B52F9E0F8623F19DDA713D3 /* ModelsListDTO.swift in Sources */,
 				D321B39761AD5E90BD7495D8 /* SessionDTO.swift in Sources */,
@@ -590,6 +602,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Hermes Pocket";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Hermes Pocket uses the camera to attach photos to your message.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Hermes Pocket saves images to your photo library when you tap the download button.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Hermes Pocket uses your photo library to attach selected media to your message.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -681,6 +694,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Hermes Pocket";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Hermes Pocket uses the camera to attach photos to your message.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Hermes Pocket saves images to your photo library when you tap the download button.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Hermes Pocket uses your photo library to attach selected media to your message.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

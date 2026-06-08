@@ -46,6 +46,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Hermes Pocket
         INFOPLIST_KEY_NSCameraUsageDescription: Hermes Pocket uses the camera to attach photos to your message.
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Hermes Pocket uses your photo library to attach selected media to your message.
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Hermes Pocket saves images to your photo library when you tap the download button.
         PRODUCT_NAME: Hermes Pocket
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: V93K683C79
